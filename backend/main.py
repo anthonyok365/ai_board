@@ -223,37 +223,23 @@ def continue_meeting(
 ) -> dict[str, Any]:
     """
     Continue an existing board meeting with additional input.
-    
-    Args:
-        thread_id: The existing meeting thread ID.
-        additional_query: Additional input to add to the discussion.
-        recursion_limit: Maximum number of steps.
-        
-    Returns:
-        Updated result dictionary.
     """
-    # Get the graph and checkpointer
     graph = get_graph()
-    checkpointer = graph.checkpointer
-    
-    # Get the existing state
     config = create_graph_config(thread_id=thread_id, recursion_limit=recursion_limit)
-    
-    # Add the new message
+
     try:
-        existing_state = checkpointer.get(config)
-        if not existing_state:
+        existing_state = graph.get_state(config)
+        
+        if not existing_state or not existing_state.values.get("messages"):
             raise ValueError(f"No meeting found with thread_id: {thread_id}")
-        
-        # Update state with new message
-        updated_state = existing_state.copy()
-        updated_state["messages"] = list(existing_state["messages"]) + [
-            HumanMessage(content=additional_query)
-        ]
-        
-        # Continue the meeting
-        result = graph.invoke(updated_state, config=config)
-        
+
+        graph.update_state(
+            config,
+            {"messages": [HumanMessage(content=additional_query)]},
+        )
+
+        result = graph.invoke(None, config=config)
+
         return {
             "success": True,
             "thread_id": thread_id,
@@ -262,7 +248,7 @@ def continue_meeting(
             "error": None,
             "rounds": result.get("decision_rounds", 0),
         }
-    
+
     except Exception as e:
         logger.error(f"Error continuing meeting: {e}")
         return {
