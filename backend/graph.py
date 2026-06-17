@@ -300,3 +300,12 @@ Notes:
 - MemorySaver enables thread-based session persistence
 """
     return structure
+
+def create_graph_config(thread_id: str = None, recursion_limit: int = MAX_RECURSION_LIMIT) -> dict:
+    """Create a graph configuration dict for thread-based execution."""
+    return {
+        "configurable": {
+            "thread_id": thread_id or "default",
+            "recursion_limit": recursion_limit,
+        }
+    }
