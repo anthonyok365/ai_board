@@ -264,20 +264,13 @@ def continue_meeting(
 def get_meeting_history(thread_id: str) -> Optional[dict]:
     """
     Retrieve the history of an existing meeting.
-    
-    Args:
-        thread_id: The meeting thread ID.
-        
-    Returns:
-        State dictionary if found, None otherwise.
     """
     graph = get_graph()
-    checkpointer = graph.checkpointer
-    
+    config = create_graph_config(thread_id=thread_id)
+
     try:
-        config = {"configurable": {"thread_id": thread_id}}
-        state = checkpointer.get(config["configurable"])
-        return state
+        state = graph.get_state(config)
+        return state.values if state else None
     except Exception:
         return None
 
