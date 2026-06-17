@@ -320,11 +320,7 @@ def run_meeting(query: str, config) -> None:
                 query=query,
                 thread_id=config.thread_id,
                 provider=config.provider,
-                model=config.model,
-                temperature=config.temperature,
-                max_rounds=config.max_rounds,
                 use_premium=config.use_premium,
-                recursion_limit=config.recursion_limit,
             )
         
         # Store result

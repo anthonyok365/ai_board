@@ -64,10 +64,10 @@ class Config:
     BACKEND_PATH = os.getenv("BACKEND_PATH", "../backend")
     
     # Backend API URL (if using HTTP API mode)
-    BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
+    BACKEND_API_URL = os.getenv("BACKEND_API_URL", "https://ai-board-backend-fp0x.onrender.com")
     
     # Mode: "import" (direct Python import) or "api" (HTTP requests)
-    BACKEND_MODE = os.getenv("BACKEND_MODE", "import")
+    BACKEND_MODE = os.getenv("BACKEND_MODE", "api")
     
     # ============================================================================
     # UI Configuration

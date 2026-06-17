@@ -12,7 +12,7 @@ import json
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, field, asdict
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -26,22 +26,17 @@ class MeetingResult:
     thread_id: str
     query: str
     status: str
+    success: bool
     result: Dict[str, Any]
-    messages: List[Dict[str, Any]]
-    timestamp: str
-
-    def __init__(self, **kwargs):
-        self.thread_id = kwargs.get("thread_id", "")
-        self.query = kwargs.get("query", "")
-        self.status = kwargs.get("status", "")
-        self.result = kwargs.get("result", {})
-        self.messages = kwargs.get("messages", [])
-        self.timestamp = kwargs.get("timestamp", datetime.now().isoformat())
+    messages: List[Any]
+    error: Optional[str] = None
+    rounds: int = 0
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
 
     @property
     def decision(self) -> Optional[str]:
         """Extract the board decision from the result."""
-        return self.result.get("board_decision")
+        return self.result.get("decision") or self.result.get("board_decision")
 
     @property
     def executive_summary(self) -> Optional[str]:
@@ -56,6 +51,23 @@ class MeetingResult:
                     return part.strip()
         return decision[:500] + "..." if len(decision) > 500 else decision
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "thread_id": self.thread_id,
+            "query": self.query,
+            "status": self.status,
+            "success": self.success,
+            "result": self.result,
+            "messages": [
+                {"name": getattr(m, "name", ""), "content": getattr(m, "content", str(m))}
+                for m in self.messages
+            ],
+            "error": self.error,
+            "rounds": self.rounds,
+            "timestamp": self.timestamp,
+        }
+
 
 class BackendClient:
     """
@@ -68,8 +80,8 @@ class BackendClient:
         backend_api_url: str = None,
         backend_path: str = None
     ):
-        self.backend_mode = backend_mode or os.getenv("BACKEND_MODE", "import")
-        self.backend_api_url = backend_api_url or os.getenv("BACKEND_API_URL", "http://localhost:8000")
+        self.backend_mode = backend_mode or os.getenv("BACKEND_MODE", "api")
+        self.backend_api_url = backend_api_url or os.getenv("BACKEND_API_URL", "https://ai-board-backend-fp0x.onrender.com")
         self.backend_path = backend_path or os.getenv("BACKEND_PATH", "../backend")
         self._backend_module = None
 
@@ -93,7 +105,11 @@ class BackendClient:
         query: str,
         thread_id: Optional[str] = None,
         use_premium: bool = False,
-        provider: Optional[str] = None
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_rounds: int = 10,
+        recursion_limit: int = 50,
     ) -> MeetingResult:
         if self.backend_mode == "api":
             return self._run_meeting_api(query, thread_id, use_premium, provider)
@@ -111,8 +127,11 @@ class BackendClient:
                 thread_id=result.get("thread_id", thread_id or "unknown"),
                 query=query,
                 status="completed",
+                success=result.get("success", True),
                 result=result,
-                messages=result.get("messages", [])
+                messages=result.get("messages", []),
+                error=result.get("error"),
+                rounds=result.get("rounds", 0),
             )
         except Exception as e:
             logger.error(f"Error running meeting: {e}")
@@ -121,69 +140,115 @@ class BackendClient:
     def _run_meeting_api(self, query, thread_id, use_premium, provider) -> MeetingResult:
         import requests
         url = f"{self.backend_api_url}/meeting"
-        payload = {"query": query, "thread_id": thread_id, "use_premium": use_premium, "provider": provider}
+        payload = {
+            "query": query,
+            "thread_id": thread_id,
+            "use_premium": use_premium,
+            "provider": provider,
+            "stream": False
+        }
         try:
             response = requests.post(url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
+            
+            # Extract result data
+            result_data = data.get("result", {})
+            
             return MeetingResult(
                 thread_id=data.get("thread_id", thread_id or "unknown"),
                 query=query,
                 status=data.get("status", "completed"),
-                result=data.get("result", {}),
-                messages=data.get("history", [])
+                success=result_data.get("success", True),
+                result=result_data,
+                messages=result_data.get("messages", data.get("messages", [])),
+                error=result_data.get("error"),
+                rounds=result_data.get("rounds", 0),
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"API error: {e}")
             raise Exception(f"Failed to connect to backend API: {e}")
 
-    def get_meeting_history(self, thread_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_meeting(self, thread_id: str) -> Optional[MeetingResult]:
+        """Get a meeting by thread_id."""
         if self.backend_mode == "api":
             import requests
             url = f"{self.backend_api_url}/meeting/{thread_id}"
-            response = requests.get(url, params={"limit": limit})
+            response = requests.get(url)
+            if response.status_code == 404:
+                return None
             response.raise_for_status()
-            return response.json().get("history", [])
+            data = response.json()
+            result_data = data.get("result", {})
+            return MeetingResult(
+                thread_id=data.get("thread_id", thread_id),
+                query=data.get("query", ""),
+                status=data.get("status", "found"),
+                success=True,
+                result=result_data,
+                messages=result_data.get("messages", data.get("messages", [])),
+                rounds=0,
+            )
         else:
             backend = self._get_backend()
-            return backend.get_meeting_history(thread_id, limit)
+            result = backend.get_meeting_history(thread_id)
+            if result:
+                return MeetingResult(
+                    thread_id=thread_id,
+                    query="",
+                    status="found",
+                    success=True,
+                    result={"messages": result},
+                    messages=result,
+                )
+            return None
 
     def continue_meeting(self, thread_id: str, query: str, use_premium: bool = False) -> MeetingResult:
         if self.backend_mode == "api":
             import requests
             url = f"{self.backend_api_url}/meeting/continue"
-            payload = {"thread_id": thread_id, "query": query, "use_premium": use_premium}
+            payload = {"thread_id": thread_id, "query": query}
             response = requests.post(url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
+            result_data = data.get("result", {})
             return MeetingResult(
                 thread_id=thread_id,
                 query=query,
                 status=data.get("status", "continued"),
-                result=data.get("result", {}),
-                messages=data.get("history", [])
+                success=result_data.get("success", True),
+                result=result_data,
+                messages=result_data.get("messages", data.get("messages", [])),
+                error=result_data.get("error"),
+                rounds=result_data.get("rounds", 0),
             )
         else:
             backend = self._get_backend()
-            result = backend.continue_meeting(thread_id=thread_id, query=query, use_premium=use_premium)
+            result = backend.continue_meeting(thread_id=thread_id, additional_query=query, use_premium=use_premium)
             return MeetingResult(
                 thread_id=thread_id,
                 query=query,
                 status="continued",
+                success=result.get("success", True),
                 result=result,
-                messages=result.get("messages", [])
+                messages=result.get("messages", []),
+                error=result.get("error"),
+                rounds=result.get("rounds", 0),
             )
 
-    def save_meeting(self, thread_id: str, query: str, result: Dict[str, Any]) -> str:
-        from pathlib import Path
-        history_dir = Path(__file__).parent / "meeting_history"
-        history_dir.mkdir(exist_ok=True)
-        filepath = history_dir / f"{thread_id}.json"
-        with open(filepath, 'w') as f:
-            json.dump({"thread_id": thread_id, "query": query, "timestamp": datetime.now().isoformat(), "result": result}, f, indent=2)
-        return str(filepath)
+    def list_meetings(self) -> List[Dict[str, Any]]:
+        """List all meetings from the backend."""
+        if self.backend_mode == "api":
+            import requests
+            url = f"{self.backend_api_url}/meetings"
+            response = requests.get(url)
+            response.raise_for_status()
+            return response.json()
+        else:
+            # Fall back to local file-based storage
+            return self._list_local_meetings()
 
-    def list_saved_meetings(self) -> List[Dict[str, Any]]:
+    def _list_local_meetings(self) -> List[Dict[str, Any]]:
         from pathlib import Path
         history_dir = Path(__file__).parent / "meeting_history"
         history_dir.mkdir(exist_ok=True)
@@ -191,8 +256,22 @@ class BackendClient:
         for filepath in sorted(history_dir.glob("*.json"), reverse=True)[:20]:
             with open(filepath) as f:
                 data = json.load(f)
-                meetings.append({"thread_id": data.get("thread_id", filepath.stem), "query": data.get("query", ""), "timestamp": data.get("timestamp", ""), "filename": filepath.name})
+                meetings.append({
+                    "thread_id": data.get("thread_id", filepath.stem),
+                    "query": data.get("query", ""),
+                    "timestamp": data.get("timestamp", ""),
+                    "filename": filepath.name
+                })
         return meetings
+
+    def save_meeting(self, result: MeetingResult) -> str:
+        from pathlib import Path
+        history_dir = Path(__file__).parent / "meeting_history"
+        history_dir.mkdir(exist_ok=True)
+        filepath = history_dir / f"{result.thread_id}.json"
+        with open(filepath, 'w') as f:
+            json.dump(result.to_dict(), f, indent=2, default=str)
+        return str(filepath)
 
 
 _client: Optional[BackendClient] = None
