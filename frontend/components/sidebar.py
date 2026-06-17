@@ -60,8 +60,8 @@ def render_sidebar() -> SidebarConfig:
         # Define models per provider
         models_by_provider = {
             "xai": {
-                "grok-2": "Grok 2 (Fast & Capable)",
-                "grok-2-mini": "Grok 2 Mini (Even Faster)",
+                "grok-4.3": "Grok 4.3 (Latest & Most Capable)",
+                
             },
             "groq": {
                 "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout (Fast, Free tier)",

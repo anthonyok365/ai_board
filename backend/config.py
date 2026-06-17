@@ -46,7 +46,7 @@ class Config:
     DEFAULT_CONFIGS = {
         PROVIDER_XAI: LLMConfig(
             provider=PROVIDER_XAI,
-            model="grok-2",  # Latest Grok model
+            model="grok-4.3",  # Latest Grok model
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("XAI_API_KEY"),
@@ -66,7 +66,7 @@ class Config:
     PREMIUM_CONFIGS = {
         PROVIDER_XAI: LLMConfig(
             provider=PROVIDER_XAI,
-            model="grok-2",  # Grok 2 is already premium
+            model="grok-4.3",  # Grok 2 is already premium
             temperature=0.7,
             max_tokens=4096,
             api_key=os.getenv("XAI_API_KEY"),

@@ -42,8 +42,8 @@ class Config:
             name="xai",
             display_name="xAI (Grok)",
             api_key_env="XAI_API_KEY",
-            default_model="grok-2",
-            premium_model="grok-2",
+            default_model="grok-4.3",
+            premium_model="grok-4.3",
             base_url="https://api.x.ai/v1",
         ),
         "groq": LLMProviderConfig(
