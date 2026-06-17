@@ -80,9 +80,10 @@ class BackendClient:
         backend_api_url: str = None,
         backend_path: str = None
     ):
-        self.backend_mode = backend_mode or os.getenv("BACKEND_MODE", "api")
+        # Always use API mode - import mode is not supported in production
+        self.backend_mode = "api"
         self.backend_api_url = backend_api_url or os.getenv("BACKEND_API_URL", "https://ai-board-backend-fp0x.onrender.com")
-        self.backend_path = backend_path or os.getenv("BACKEND_PATH", "../backend")
+        self.backend_path = backend_path
         self._backend_module = None
 
     def _get_backend(self):
