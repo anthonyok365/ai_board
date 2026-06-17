@@ -8,9 +8,14 @@ Connects seamlessly to the backend for real-time board meeting simulations.
 import streamlit as st
 import time
 import json
+import sys
+import os
 from datetime import datetime
 from typing import Optional
 import uuid
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 # Page configuration
 st.set_page_config(
@@ -29,7 +34,7 @@ from components.chat_display import (
     AGENT_CONFIG,
 )
 from components.decision_panel import render_decision_panel, parse_decision_sections
-from utils.backend_client import BackendClient, get_backend_client, MeetingResult
+from client.backend_client import BackendClient, get_backend_client, MeetingResult
 
 
 # =============================================================================

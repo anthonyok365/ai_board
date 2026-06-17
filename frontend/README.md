@@ -11,53 +11,46 @@ A beautiful, modern Streamlit frontend for the AI-powered Board of Directors app
 - 💾 Meeting history and export functionality
 - 🎯 Executive summary and action items
 
-## Quick Start
+## Quick Start (Local Development)
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure environment (optional)
-cp ../backend/.env.example .env
-# Edit .env with your API keys
-
-# Run the application
 streamlit run app.py
 ```
+
+## Deployment to Streamlit Cloud
+
+### 1. Connect to Streamlit Cloud
+
+1. Go to [share.streamlit.io](https://share.streamlit.io)
+2. Click **New app**
+3. Select repository: `anthonyok365/ai_board`
+4. Set **Main file path:** `frontend/app.py`
+5. Click **Advanced settings** → **Secrets** and add:
+   - `OPENAI_API_KEY` = your key
+   - `ANTHROPIC_API_KEY` = your key (optional)
+   - `GROQ_API_KEY` = your key (optional)
+
+### 2. Deploy
+
+Click **Deploy!** - your app will be live at `https://your-app-name.streamlit.app`
 
 ## Project Structure
 
 ```
 frontend/
-├── app.py                 # Main Streamlit application
-├── config.py              # Configuration and settings
-├── requirements.txt       # Python dependencies
+├── app.py                      # Main Streamlit application
+├── config.py                   # Configuration and settings
+├── requirements.txt            # Python dependencies
+├── .streamlit/
+│   ├── config.toml             # Streamlit configuration
+│   └── secrets.toml            # Secrets template
 ├── components/
-│   ├── __init__.py
-│   ├── sidebar.py         # Configuration sidebar
-│   ├── chat_display.py    # Debate display component
-│   └── decision_panel.py  # Decision summary panel
-└── utils/
-    ├── __init__.py
-    └── backend_client.py  # Backend communication client
-```
-
-## Configuration
-
-The frontend connects to the backend in two modes:
-
-1. **Import Mode** (default): Directly imports the backend Python module
-2. **API Mode**: Communicates via HTTP REST API
-
-### Environment Variables
-
-```env
-BACKEND_MODE=import        # or "api"
-BACKEND_PATH=../backend    # Path to backend directory
-BACKEND_API_URL=http://localhost:8000
-OPENAI_API_KEY=your_key
-ANTHROPIC_API_KEY=your_key
-GROQ_API_KEY=your_key
+│   ├── sidebar.py              # Configuration sidebar
+│   ├── chat_display.py         # Debate display component
+│   └── decision_panel.py       # Decision summary panel
+└── client/
+    └── backend_client.py       # Backend communication client
 ```
 
 ## Tech Stack
@@ -65,4 +58,3 @@ GROQ_API_KEY=your_key
 - **Streamlit** - Web framework
 - **Python** - Backend integration
 - **LangGraph** - Multi-agent system (backend)
-- **Requests/HTTPX** - API client

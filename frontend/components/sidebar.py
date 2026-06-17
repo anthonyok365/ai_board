@@ -213,7 +213,7 @@ def render_sidebar() -> SidebarConfig:
         # ========================================================================
         st.markdown("### 📜 Meeting History")
         
-        from utils.backend_client import get_backend_client
+        from client.backend_client import get_backend_client
         
         try:
             client = get_backend_client()
