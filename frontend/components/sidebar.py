@@ -64,10 +64,8 @@ def render_sidebar() -> SidebarConfig:
                 "grok-2-mini": "Grok 2 Mini (Even Faster)",
             },
             "groq": {
-                "llama-3.3-70b-versatile": "Llama 3.3 70B (Fast, Free tier)",
-                "llama-3.1-70b-versatile": "Llama 3.1 70B (Extended Context)",
-                "mixtral-8x7b-32768": "Mixtral 8x7B (Balanced)",
-            },
+                "meta-llama/llama-4-scout-17b-16e-instruct": "Llama 4 Scout (Fast, Free tier)",
+                    },
         }
         
         provider_models = models_by_provider.get(selected_provider, {})

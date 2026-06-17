@@ -50,8 +50,8 @@ class Config:
             name="groq",
             display_name="Groq",
             api_key_env="GROQ_API_KEY",
-            default_model="llama-3.3-70b-versatile",
-            premium_model="llama-3.2-90b-vision-preview",
+            default_model="meta-llama/llama-4-scout-17b-16e-instruct",
+            premium_model="meta-llama/llama-4-scout-17b-16e-instruct",
             base_url="https://api.groq.com/openai/v1",
         ),
     }
