@@ -186,7 +186,7 @@ async def create_meeting(request: MeetingRequest):
         logger.info(f"Starting meeting: {request.query[:50]}...")
         
         result = run_board_meeting(
-            query=request.query,
+            additional_query=request.query,
             thread_id=request.thread_id,
             use_premium=request.use_premium,
             stream=request.stream
@@ -195,7 +195,7 @@ async def create_meeting(request: MeetingRequest):
         return MeetingResponse(
             status="completed",
             thread_id=result.get("thread_id", request.thread_id or "unknown"),
-            query=request.query,
+            additional_query=request.query,
             result=result
         )
         
@@ -214,14 +214,14 @@ async def continue_existing_meeting(request: ContinueRequest):
         
         result = continue_meeting(
             thread_id=request.thread_id,
-            query=request.query,
+            additional_query=request.query,
             use_premium=request.use_premium
         )
         
         return MeetingResponse(
             status="continued",
             thread_id=request.thread_id,
-            query=request.query,
+            additional_query=request.query,
             result=result
         )
         
