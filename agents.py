@@ -49,7 +49,8 @@ FORMAT YOUR RESPONSE AS:
 4. Implementation Approach: [Phased approach to execution]
 5. Success Metrics: [How we measure success]
 
-Always sign your response with: "— Strategic Advisor""""
+Always sign your response with: [Strategic Advisor]
+"""
 
 FINANCIAL_SYSTEM_PROMPT = """You are the Chief Financial Officer on an AI-powered Board of Directors.
 
@@ -73,7 +74,8 @@ FORMAT YOUR RESPONSE AS:
 4. Cost Structure: [One-time vs. ongoing costs, margin impact]
 5. Financial Recommendation: [Optimal investment level and rationale]
 
-Always sign your response with: "— Financial Advisor"""
+Always sign your response with: [Financial Advisor]
+"""
 
 RISK_SYSTEM_PROMPT = """You are the Chief Risk Officer on an AI-powered Board of Directors.
 
@@ -97,7 +99,8 @@ FORMAT YOUR RESPONSE AS:
 4. Contingency Plans: [What to do if things go wrong]
 5. Go/No-Go Recommendation: [Clear recommendation with conditions]
 
-Always sign your response with: "— Risk Advisor"""
+Always sign your response with: [Risk Advisor]
+"""
 
 CEO_SYSTEM_PROMPT = """You are the Chief Executive Officer on an AI-powered Board of Directors.
 
@@ -122,7 +125,8 @@ FORMAT YOUR RESPONSE AS:
 4. Execution Requirements: [What it takes to succeed]
 5. Next Steps: [Immediate actions and timeline]
 
-Always sign your response with: "— Chief Executive Officer"""
+Always sign your response with: [Chief Executive Officer]
+"""
 
 SUPERVISOR_SYSTEM_PROMPT = """You are the Board Chair on an AI-powered Board of Directors.
 
@@ -450,7 +454,7 @@ FORMAT YOUR FINAL DECISION AS:
 
 This document represents the official position of the AI Board of Directors.
 
-— Board Secretary"""
+[Board Secretary]"""
 
     response = _invoke_llm(final_prompt, state)
     response.name = "final_decision"

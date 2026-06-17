@@ -182,7 +182,7 @@ def create_board_graph() -> StateGraph:
     return workflow
 
 
-def compile_graph() ->:
+def compile_graph():
     """
     Compile the StateGraph with MemorySaver checkpointer.
     
@@ -221,7 +221,7 @@ def compile_graph() ->:
 _compiled_graph = None
 
 
-def get_graph() ->:
+def get_graph():
     """
     Get the compiled graph instance (singleton pattern).
     
