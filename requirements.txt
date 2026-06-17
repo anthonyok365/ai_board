@@ -1,0 +1,18 @@
+# LangGraph and LangChain Core
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+
+# LLM Provider Integrations
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+langchain-groq>=0.1.0
+
+# Data Validation
+pydantic>=2.0.0
+
+# Environment Management
+python-dotenv>=1.0.0
+
+# Utilities
+coloredlogs>=15.0.0
