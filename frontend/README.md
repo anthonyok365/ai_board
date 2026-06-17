@@ -2,14 +2,10 @@
 
 A beautiful, modern Streamlit frontend for the AI-powered Board of Directors application.
 
-## Features
+## Architecture
 
-- 🎨 Professional dark theme UI
-- 💬 Real-time debate display with agent avatars
-- 📊 Structured decision panel with metrics
-- ⚙️ Configurable LLM providers (OpenAI, Anthropic, Groq)
-- 💾 Meeting history and export functionality
-- 🎯 Executive summary and action items
+- **Frontend**: Streamlit Cloud - https://ai-board.streamlit.app
+- **Backend**: Render API - https://ai-board-backend-fp0x.onrender.com
 
 ## Quick Start (Local Development)
 
@@ -20,41 +16,28 @@ streamlit run app.py
 
 ## Deployment to Streamlit Cloud
 
-### 1. Connect to Streamlit Cloud
-
 1. Go to [share.streamlit.io](https://share.streamlit.io)
 2. Click **New app**
 3. Select repository: `anthonyok365/ai_board`
 4. Set **Main file path:** `frontend/app.py`
 5. Click **Advanced settings** → **Secrets** and add:
-   - `OPENAI_API_KEY` = your key
-   - `ANTHROPIC_API_KEY` = your key (optional)
-   - `GROQ_API_KEY` = your key (optional)
-
-### 2. Deploy
-
-Click **Deploy!** - your app will be live at `https://your-app-name.streamlit.app`
+   - `BACKEND_API_URL` = `https://ai-board-backend-fp0x.onrender.com`
+   - `BACKEND_MODE` = `api`
+   - `XAI_API_KEY` = your xAI key
+   - `GROQ_API_KEY` = your Groq key
 
 ## Project Structure
 
 ```
 frontend/
 ├── app.py                      # Main Streamlit application
-├── config.py                   # Configuration and settings
-├── requirements.txt            # Python dependencies
+├── config.py                   # Configuration
+├── requirements.txt            # Dependencies
 ├── .streamlit/
-│   ├── config.toml             # Streamlit configuration
-│   └── secrets.toml            # Secrets template
-├── components/
-│   ├── sidebar.py              # Configuration sidebar
-│   ├── chat_display.py         # Debate display component
-│   └── decision_panel.py       # Decision summary panel
-└── client/
-    └── backend_client.py       # Backend communication client
+│   ├── config.toml             # Streamlit settings
+│   └── secrets.toml            # Secrets (not committed)
+└── components/
+    ├── sidebar.py              # Configuration panel
+    ├── chat_display.py         # Debate display
+    └── decision_panel.py       # Decision summary
 ```
-
-## Tech Stack
-
-- **Streamlit** - Web framework
-- **Python** - Backend integration
-- **LangGraph** - Multi-agent system (backend)
