@@ -241,7 +241,7 @@ def continue_meeting(
     
     # Add the new message
     try:
-        existing_state = checkpointer.get(config["configurable"])
+        existing_state = checkpointer.get(config)
         if not existing_state:
             raise ValueError(f"No meeting found with thread_id: {thread_id}")
         
