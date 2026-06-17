@@ -40,8 +40,7 @@ def render_sidebar() -> SidebarConfig:
         st.markdown("### 🤖 LLM Provider")
         
         provider_options = {
-            "openai": "OpenAI (GPT-4)",
-            "anthropic": "Anthropic (Claude)",
+            "xai": "xAI (Grok)",
             "groq": "Groq (Llama)",
         }
         
@@ -60,16 +59,14 @@ def render_sidebar() -> SidebarConfig:
         
         # Define models per provider
         models_by_provider = {
-            "openai": {
-                "gpt-4o-mini": "GPT-4o Mini (Fast, Cost-effective)",
-                "gpt-4o": "GPT-4o (Powerful, More expensive)",
-            },
-            "anthropic": {
-                "claude-sonnet-4-20250514": "Claude Sonnet 4 (Balanced)",
-                "claude-opus-4-20250514": "Claude Opus 4 (Most powerful)",
+            "xai": {
+                "grok-2": "Grok 2 (Fast & Capable)",
+                "grok-2-mini": "Grok 2 Mini (Even Faster)",
             },
             "groq": {
                 "llama-3.3-70b-versatile": "Llama 3.3 70B (Fast, Free tier)",
+                "llama-3.1-70b-versatile": "Llama 3.1 70B (Extended Context)",
+                "mixtral-8x7b-32768": "Mixtral 8x7B (Balanced)",
             },
         }
         
@@ -177,16 +174,14 @@ def render_sidebar() -> SidebarConfig:
         st.markdown("### 🔑 API Key")
         
         api_key_help = {
-            "openai": "Get your key from https://platform.openai.com/api-keys",
-            "anthropic": "Get your key from https://console.anthropic.com/settings/keys",
+            "xai": "Get your key from https://console.x.ai/",
             "groq": "Get your key from https://console.groq.com/keys",
         }
         
         # Check if API key is in environment
         import os
         env_key_map = {
-            "openai": "OPENAI_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
+            "xai": "XAI_API_KEY",
             "groq": "GROQ_API_KEY",
         }
         

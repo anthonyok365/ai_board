@@ -2,6 +2,7 @@
 Configuration module for AI Board Frontend.
 
 Loads environment variables and provides application settings.
+Supports xAI (Grok) and Groq LLM providers.
 """
 
 import os
@@ -21,14 +22,15 @@ class LLMProviderConfig:
     api_key_env: str
     default_model: str
     premium_model: str
+    base_url: str
 
 
 class Config:
     """
     Central configuration class for the AI Board Frontend.
     
-    Manages settings for LLM providers, backend connection,
-    and application behavior.
+    Manages settings for LLM providers (xAI and Groq),
+    backend connection, and application behavior.
     """
     
     # ============================================================================
@@ -36,26 +38,21 @@ class Config:
     # ============================================================================
     
     PROVIDERS = {
-        "openai": LLMProviderConfig(
-            name="openai",
-            display_name="OpenAI",
-            api_key_env="OPENAI_API_KEY",
-            default_model="gpt-4o-mini",
-            premium_model="gpt-4o",
-        ),
-        "anthropic": LLMProviderConfig(
-            name="anthropic",
-            display_name="Anthropic (Claude)",
-            api_key_env="ANTHROPIC_API_KEY",
-            default_model="claude-sonnet-4-20250514",
-            premium_model="claude-opus-4-20250514",
+        "xai": LLMProviderConfig(
+            name="xai",
+            display_name="xAI (Grok)",
+            api_key_env="XAI_API_KEY",
+            default_model="grok-2",
+            premium_model="grok-2",
+            base_url="https://api.x.ai/v1",
         ),
         "groq": LLMProviderConfig(
             name="groq",
             display_name="Groq",
             api_key_env="GROQ_API_KEY",
             default_model="llama-3.3-70b-versatile",
-            premium_model="llama-3.3-70b-versatile",
+            premium_model="llama-3.2-90b-vision-preview",
+            base_url="https://api.groq.com/openai/v1",
         ),
     }
     
@@ -139,7 +136,7 @@ class Config:
         provider = self.get_provider(provider_name)
         if provider:
             return provider.premium_model if use_premium else provider.default_model
-        return "gpt-4o-mini"  # Default fallback
+        return "llama-3.3-70b-versatile"  # Default fallback
     
     def get_backend_module(self):
         """
