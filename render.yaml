@@ -2,7 +2,7 @@
 services:
   - type: web
     name: ai-board-backend
-    repo: https://github.com/anthonyok365/ai_board
+    runtime: python
     region: oregon
     plan: free
     buildCommand: cd backend && pip install -r api_requirements.txt
