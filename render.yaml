@@ -1,14 +1,12 @@
 # Render Blueprint - AI Board Backend API
-# Deploy this to Render to host the backend API
-
 services:
   - type: web
     name: ai-board-backend
-    env: python
+    repo: https://github.com/anthonyok365/ai_board
     region: oregon
     plan: free
-    buildCommand: pip install -r api_requirements.txt
-    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    buildCommand: cd backend && pip install -r api_requirements.txt
+    startCommand: cd backend && uvicorn server:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
       - key: LLM_PROVIDER
