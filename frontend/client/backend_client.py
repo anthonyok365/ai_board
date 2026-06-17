@@ -1,369 +1,210 @@
 """
 Backend client for AI Board Frontend.
 
-Provides a clean interface to communicate with the backend
-either via direct Python import or HTTP API.
+Provides two modes:
+1. Import mode: Directly imports backend Python module (default)
+2. API mode: Communicates via HTTP REST API
 """
 
 import os
 import sys
 import json
 import logging
-import traceback
+from typing import Optional, Dict, Any, List
 from datetime import datetime
-from typing import Optional, Generator, Any, Callable
-from dataclasses import dataclass, field
-from pathlib import Path
+from dataclasses import dataclass
+from dotenv import load_dotenv
 
-import requests
+load_dotenv()
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class MeetingResult:
-    """Result of a board meeting."""
-    success: bool
+    """Structured result from a board meeting."""
     thread_id: str
-    messages: list = field(default_factory=list)
-    decision: Optional[str] = None
-    error: Optional[str] = None
-    rounds: int = 0
-    timestamp: datetime = field(default_factory=datetime.now)
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for serialization."""
-        return {
-            "success": self.success,
-            "thread_id": self.thread_id,
-            "messages": [
-                {
-                    "type": type(msg).__name__,
-                    "content": msg.content if hasattr(msg, 'content') else str(msg),
-                    "name": getattr(msg, 'name', None),
-                }
-                for msg in self.messages
-            ],
-            "decision": self.decision,
-            "error": self.error,
-            "rounds": self.rounds,
-            "timestamp": self.timestamp.isoformat(),
-        }
+    query: str
+    status: str
+    result: Dict[str, Any]
+    messages: List[Dict[str, Any]]
+    timestamp: str
+
+    def __init__(self, **kwargs):
+        self.thread_id = kwargs.get("thread_id", "")
+        self.query = kwargs.get("query", "")
+        self.status = kwargs.get("status", "")
+        self.result = kwargs.get("result", {})
+        self.messages = kwargs.get("messages", [])
+        self.timestamp = kwargs.get("timestamp", datetime.now().isoformat())
+
+    @property
+    def decision(self) -> Optional[str]:
+        """Extract the board decision from the result."""
+        return self.result.get("board_decision")
+
+    @property
+    def executive_summary(self) -> Optional[str]:
+        """Extract executive summary from the decision."""
+        decision = self.decision
+        if not decision:
+            return None
+        if "Executive Summary" in decision:
+            parts = decision.split("##")
+            for part in parts:
+                if "Executive Summary" in part:
+                    return part.strip()
+        return decision[:500] + "..." if len(decision) > 500 else decision
 
 
 class BackendClient:
     """
-    Client for communicating with the AI Board Backend.
-    
-    Supports two modes:
-    1. "import" - Direct Python import of backend module
-    2. "api" - HTTP API calls to backend server
+    Client for communicating with the AI Board backend.
     """
-    
+
     def __init__(
         self,
-        backend_path: str = "../backend",
-        api_url: str = "http://localhost:8000",
-        mode: str = "import"
+        backend_mode: str = None,
+        backend_api_url: str = None,
+        backend_path: str = None
     ):
-        """
-        Initialize the backend client.
-        
-        Args:
-            backend_path: Path to backend directory (for import mode).
-            api_url: Backend API URL (for api mode).
-            mode: "import" or "api".
-        """
-        self.backend_path = os.path.abspath(backend_path)
-        self.api_url = api_url
-        self.mode = mode
+        self.backend_mode = backend_mode or os.getenv("BACKEND_MODE", "import")
+        self.backend_api_url = backend_api_url or os.getenv("BACKEND_API_URL", "http://localhost:8000")
+        self.backend_path = backend_path or os.getenv("BACKEND_PATH", "../backend")
         self._backend_module = None
-        
-        logger.info(f"BackendClient initialized in '{mode}' mode")
-        logger.info(f"Backend path: {self.backend_path}")
-    
-    def _ensure_backend_imported(self):
-        """Ensure the backend module is imported."""
-        if self._backend_module is not None:
-            return
-        
-        # Add backend path to sys.path
-        if self.backend_path not in sys.path:
-            sys.path.insert(0, self.backend_path)
-        
-        try:
-            # Import backend main module
-            import main as backend_main
-            
-            self._backend_module = backend_main
-            logger.info("Backend module imported successfully")
-        except ImportError as e:
-            logger.error(f"Failed to import backend: {e}")
-            raise ImportError(
-                f"Could not import backend from {self.backend_path}. "
-                f"Make sure the backend files exist and are properly installed."
-            ) from e
-    
+
+    def _get_backend(self):
+        """Lazy load the backend module."""
+        if self._backend_module is None:
+            import os
+            backend_path = os.path.abspath(self.backend_path)
+            if backend_path not in sys.path:
+                sys.path.insert(0, backend_path)
+            from main import run_board_meeting, get_meeting_history, continue_meeting
+            self._backend_module = type('Backend', (), {
+                'run_board_meeting': run_board_meeting,
+                'get_meeting_history': get_meeting_history,
+                'continue_meeting': continue_meeting,
+            })()
+        return self._backend_module
+
     def run_meeting(
         self,
         query: str,
         thread_id: Optional[str] = None,
-        provider: str = "openai",
-        model: Optional[str] = None,
-        temperature: float = 0.7,
-        max_rounds: int = 6,
         use_premium: bool = False,
-        recursion_limit: int = 25,
+        provider: Optional[str] = None
     ) -> MeetingResult:
-        """
-        Run a board meeting.
-        
-        Args:
-            query: The business question to discuss.
-            thread_id: Optional session identifier.
-            provider: LLM provider (openai, anthropic, groq).
-            model: Model name (uses default if not specified).
-            temperature: LLM temperature setting.
-            max_rounds: Maximum discussion rounds.
-            use_premium: Use premium model.
-            recursion_limit: Maximum graph recursion depth.
-            
-        Returns:
-            MeetingResult with meeting output.
-        """
-        # Generate thread_id if not provided
-        if thread_id is None:
-            thread_id = f"meeting_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        logger.info(f"Starting meeting: thread_id={thread_id}, provider={provider}")
-        
-        if self.mode == "api":
-            return self._run_meeting_api(
-                query, thread_id, provider, model, temperature, max_rounds
-            )
+        if self.backend_mode == "api":
+            return self._run_meeting_api(query, thread_id, use_premium, provider)
         else:
-            return self._run_meeting_import(
-                query, thread_id, provider, model, temperature, max_rounds,
-                use_premium, recursion_limit
-            )
-    
-    def _run_meeting_import(
-        self,
-        query: str,
-        thread_id: str,
-        provider: str,
-        model: Optional[str],
-        temperature: float,
-        max_rounds: int,
-        use_premium: bool,
-        recursion_limit: int,
-    ) -> MeetingResult:
-        """Run meeting via direct Python import."""
-        self._ensure_backend_imported()
-        
+            return self._run_meeting_import(query, thread_id, use_premium, provider)
+
+    def _run_meeting_import(self, query, thread_id, use_premium, provider) -> MeetingResult:
         try:
-            # Import and configure backend
-            from config import set_provider
-            
-            # Set the provider
-            set_provider(provider, use_premium=use_premium)
-            
-            # Run the meeting
-            result = self._backend_module.run_board_meeting(
-                query=query,
-                thread_id=thread_id,
-                recursion_limit=recursion_limit,
-            )
-            
-            # Convert to MeetingResult
+            backend = self._get_backend()
+            if provider:
+                from config import set_provider
+                set_provider(provider, use_premium)
+            result = backend.run_board_meeting(query=query, thread_id=thread_id, use_premium=use_premium)
             return MeetingResult(
-                success=result.get("success", False),
-                thread_id=result.get("thread_id", thread_id),
-                messages=result.get("messages", []),
-                decision=result.get("decision"),
-                error=result.get("error"),
-                rounds=result.get("rounds", 0),
+                thread_id=result.get("thread_id", thread_id or "unknown"),
+                query=query,
+                status="completed",
+                result=result,
+                messages=result.get("messages", [])
             )
-            
         except Exception as e:
             logger.error(f"Error running meeting: {e}")
-            logger.error(traceback.format_exc())
-            return MeetingResult(
-                success=False,
-                thread_id=thread_id,
-                error=f"Error: {str(e)}",
-            )
-    
-    def _run_meeting_api(
-        self,
-        query: str,
-        thread_id: str,
-        provider: str,
-        model: Optional[str],
-        temperature: float,
-        max_rounds: int,
-    ) -> MeetingResult:
-        """Run meeting via HTTP API."""
+            raise
+
+    def _run_meeting_api(self, query, thread_id, use_premium, provider) -> MeetingResult:
+        import requests
+        url = f"{self.backend_api_url}/meeting"
+        payload = {"query": query, "thread_id": thread_id, "use_premium": use_premium, "provider": provider}
         try:
-            response = requests.post(
-                f"{self.api_url}/meeting",
-                json={
-                    "query": query,
-                    "thread_id": thread_id,
-                    "provider": provider,
-                    "model": model,
-                    "temperature": temperature,
-                    "max_rounds": max_rounds,
-                },
-                timeout=300,  # 5 minute timeout
-            )
-            
+            response = requests.post(url, json=payload, timeout=300)
             response.raise_for_status()
             data = response.json()
-            
             return MeetingResult(
-                success=data.get("success", False),
-                thread_id=data.get("thread_id", thread_id),
-                messages=data.get("messages", []),
-                decision=data.get("decision"),
-                error=data.get("error"),
-                rounds=data.get("rounds", 0),
+                thread_id=data.get("thread_id", thread_id or "unknown"),
+                query=query,
+                status=data.get("status", "completed"),
+                result=data.get("result", {}),
+                messages=data.get("history", [])
             )
-            
         except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
-            return MeetingResult(
-                success=False,
-                thread_id=thread_id,
-                error=f"API request failed: {str(e)}",
-            )
-    
-    def get_meeting_history(self, thread_id: str) -> Optional[dict]:
-        """
-        Get history of an existing meeting.
-        
-        Args:
-            thread_id: The meeting thread ID.
-            
-        Returns:
-            Meeting state dictionary or None.
-        """
-        if self.mode == "api":
-            try:
-                response = requests.get(
-                    f"{self.api_url}/meeting/{thread_id}",
-                    timeout=10,
-                )
-                response.raise_for_status()
-                return response.json()
-            except requests.exceptions.RequestException:
-                return None
+            logger.error(f"API error: {e}")
+            raise Exception(f"Failed to connect to backend API: {e}")
+
+    def get_meeting_history(self, thread_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        if self.backend_mode == "api":
+            import requests
+            url = f"{self.backend_api_url}/meeting/{thread_id}"
+            response = requests.get(url, params={"limit": limit})
+            response.raise_for_status()
+            return response.json().get("history", [])
         else:
-            self._ensure_backend_imported()
-            return self._backend_module.get_meeting_history(thread_id)
-    
-    def save_meeting(self, result: MeetingResult, filepath: Optional[str] = None) -> str:
-        """
-        Save meeting result to a JSON file.
-        
-        Args:
-            result: The meeting result to save.
-            filepath: Optional custom filepath.
-            
-        Returns:
-            Path to saved file.
-        """
-        if filepath is None:
-            # Generate filename based on thread_id and timestamp
-            filename = f"{result.thread_id}.json"
-            filepath = os.path.join(
-                os.path.dirname(__file__),
-                "..",
-                "meeting_history",
-                filename
+            backend = self._get_backend()
+            return backend.get_meeting_history(thread_id, limit)
+
+    def continue_meeting(self, thread_id: str, query: str, use_premium: bool = False) -> MeetingResult:
+        if self.backend_mode == "api":
+            import requests
+            url = f"{self.backend_api_url}/meeting/continue"
+            payload = {"thread_id": thread_id, "query": query, "use_premium": use_premium}
+            response = requests.post(url, json=payload, timeout=300)
+            response.raise_for_status()
+            data = response.json()
+            return MeetingResult(
+                thread_id=thread_id,
+                query=query,
+                status=data.get("status", "continued"),
+                result=data.get("result", {}),
+                messages=data.get("history", [])
             )
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        
-        # Save to JSON
+        else:
+            backend = self._get_backend()
+            result = backend.continue_meeting(thread_id=thread_id, query=query, use_premium=use_premium)
+            return MeetingResult(
+                thread_id=thread_id,
+                query=query,
+                status="continued",
+                result=result,
+                messages=result.get("messages", [])
+            )
+
+    def save_meeting(self, thread_id: str, query: str, result: Dict[str, Any]) -> str:
+        from pathlib import Path
+        history_dir = Path(__file__).parent / "meeting_history"
+        history_dir.mkdir(exist_ok=True)
+        filepath = history_dir / f"{thread_id}.json"
         with open(filepath, 'w') as f:
-            json.dump(result.to_dict(), f, indent=2, default=str)
-        
-        logger.info(f"Meeting saved to {filepath}")
-        return filepath
-    
-    def list_saved_meetings(self) -> list[dict]:
-        """
-        List all saved meeting files.
-        
-        Returns:
-            List of meeting info dictionaries.
-        """
-        history_dir = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "meeting_history"
-        )
-        
+            json.dump({"thread_id": thread_id, "query": query, "timestamp": datetime.now().isoformat(), "result": result}, f, indent=2)
+        return str(filepath)
+
+    def list_saved_meetings(self) -> List[Dict[str, Any]]:
+        from pathlib import Path
+        history_dir = Path(__file__).parent / "meeting_history"
+        history_dir.mkdir(exist_ok=True)
         meetings = []
-        if os.path.exists(history_dir):
-            for filename in os.listdir(history_dir):
-                if filename.endswith('.json'):
-                    filepath = os.path.join(history_dir, filename)
-                    try:
-                        with open(filepath, 'r') as f:
-                            data = json.load(f)
-                            meetings.append({
-                                "filename": filename,
-                                "filepath": filepath,
-                                "thread_id": data.get("thread_id", filename[:-5]),
-                                "timestamp": data.get("timestamp", ""),
-                                "success": data.get("success", False),
-                            })
-                    except (json.JSONDecodeError, IOError):
-                        continue
-        
-        # Sort by timestamp (newest first)
-        meetings.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        for filepath in sorted(history_dir.glob("*.json"), reverse=True)[:20]:
+            with open(filepath) as f:
+                data = json.load(f)
+                meetings.append({"thread_id": data.get("thread_id", filepath.stem), "query": data.get("query", ""), "timestamp": data.get("timestamp", ""), "filename": filepath.name})
         return meetings
 
 
-# Global client instance
 _client: Optional[BackendClient] = None
 
 
-def get_backend_client(
-    backend_path: str = "../backend",
-    api_url: str = "http://localhost:8000",
-    mode: str = "import"
-) -> BackendClient:
-    """
-    Get or create the global backend client instance.
-    
-    Args:
-        backend_path: Path to backend directory.
-        api_url: Backend API URL.
-        mode: Client mode ("import" or "api").
-        
-    Returns:
-        BackendClient instance.
-    """
+def get_backend_client() -> BackendClient:
     global _client
-    
     if _client is None:
-        _client = BackendClient(
-            backend_path=backend_path,
-            api_url=api_url,
-            mode=mode,
-        )
-    
+        _client = BackendClient()
     return _client
 
 
-def reset_backend_client():
-    """Reset the global client instance (useful for testing)."""
+def reset_backend_client() -> None:
     global _client
     _client = None
