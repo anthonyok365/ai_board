@@ -4,18 +4,19 @@ FastAPI Server for AI Board of Directors Backend.
 
 import os
 import logging
-from typing import Optional
+from typing import Optional, List
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 load_dotenv()
 
-from main import run_board_meeting, get_meeting_history, continue_meeting
+from main import run_board_meeting, continue_meeting
 from config import config, set_provider
+from database import get_database, SCHEMA_SQL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,12 +35,12 @@ class MeetingResponse(BaseModel):
     thread_id: str
     query: str
     result: dict
+    messages: Optional[List[dict]] = None
 
 
 class ContinueRequest(BaseModel):
     thread_id: str
     query: str
-    use_premium: bool = False
 
 
 class HealthResponse(BaseModel):
@@ -47,11 +48,14 @@ class HealthResponse(BaseModel):
     provider: str
     model: str
     api_key_configured: bool
+    database_connected: bool
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    db = get_database()
     logger.info(f"Starting API - Provider: {config.provider}, Model: {config.model}")
+    logger.info(f"Database connected: {db.is_connected()}")
     yield
     logger.info("Shutting down API")
 
@@ -74,11 +78,13 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
+    db = get_database()
     return HealthResponse(
         status="healthy",
         provider=config.provider,
         model=config.model,
-        api_key_configured=config.api_key is not None
+        api_key_configured=config.api_key is not None,
+        database_connected=db.is_connected()
     )
 
 
@@ -97,11 +103,19 @@ async def create_meeting(request: MeetingRequest):
             stream=request.stream
         )
         
+        thread_id = result.get("thread_id", request.thread_id or "unknown")
+        
+        # Save to database
+        db = get_database()
+        messages = result.get("messages", [])
+        db.save_meeting(thread_id, request.query, result, messages)
+        
         return MeetingResponse(
             status="completed",
-            thread_id=result.get("thread_id", request.thread_id or "unknown"),
+            thread_id=thread_id,
             query=request.query,
-            result=result
+            result=result,
+            messages=messages
         )
     except Exception as e:
         logger.error(f"Meeting error: {str(e)}")
@@ -118,11 +132,17 @@ async def continue_existing_meeting(request: ContinueRequest):
             additional_query=request.query
         )
         
+        # Save to database
+        db = get_database()
+        messages = result.get("messages", [])
+        db.save_meeting(request.thread_id, "", result, messages)
+        
         return MeetingResponse(
             status="continued",
             thread_id=request.thread_id,
             query=request.query,
-            result=result
+            result=result,
+            messages=messages
         )
     except Exception as e:
         logger.error(f"Continue meeting error: {str(e)}")
@@ -132,19 +152,34 @@ async def continue_existing_meeting(request: ContinueRequest):
 @app.get("/meeting/{thread_id}", response_model=MeetingResponse)
 async def get_meeting(thread_id: str):
     try:
-        history = get_meeting_history(thread_id)
-        if not history:
+        db = get_database()
+        meeting = db.get_meeting(thread_id)
+        if not meeting:
             raise HTTPException(status_code=404, detail="Meeting not found")
         return MeetingResponse(
             status="found",
             thread_id=thread_id,
-            query=history[0].get("query", "") if history else "",
-            result={"messages": history}
+            query=meeting.get("query", ""),
+            result=meeting.get("result", {}),
+            messages=meeting.get("messages", [])
         )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/meetings", response_model=List[dict])
+async def list_meetings():
+    """List all meetings."""
+    db = get_database()
+    return db.list_meetings()
+
+
+@app.get("/schema")
+async def get_schema():
+    """Return SQL schema for setting up Supabase."""
+    return {"sql": SCHEMA_SQL}
 
 
 if __name__ == "__main__":

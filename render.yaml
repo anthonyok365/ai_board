@@ -1,4 +1,3 @@
-# Render Blueprint - AI Board Backend API
 services:
   - type: web
     name: ai-board-backend
@@ -14,4 +13,8 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: XAI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
         sync: false
