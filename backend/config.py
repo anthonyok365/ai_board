@@ -5,7 +5,7 @@ Loads environment variables for API keys and model selection.
 Provides sensible defaults and easy configuration switching.
 
 Supports:
-- xAI (Grok): xAI's Grok models via OpenAI-compatible API
+- Google Gemini: Google's Gemini models via LangChain
 - Groq: Fast inference with Llama models
 """
 
@@ -22,7 +22,7 @@ load_dotenv()
 class LLMConfig:
     """Configuration for Language Model providers."""
 
-    provider: str  # 'xai' or 'groq'
+    provider: str  # 'gemini' or 'groq'
     model: str
     temperature: float = 0.7
     max_tokens: int = 2048
@@ -34,23 +34,23 @@ class Config:
     """
     Central configuration class for the AI Board of Directors application.
 
-    Supports xAI (Grok) and Groq LLM providers with environment variable configuration.
+    Supports Google Gemini and Groq LLM providers with environment variable configuration.
     Defaults to Groq for speed and cost-effectiveness.
     """
 
     # Supported LLM Providers
-    PROVIDER_XAI = "xai"
+    PROVIDER_GEMINI = "gemini"
     PROVIDER_GROQ = "groq"
 
     # Default configurations per provider
     DEFAULT_CONFIGS = {
-        PROVIDER_XAI: LLMConfig(
-            provider=PROVIDER_XAI,
-            model="grok-4.3",  # Latest Grok model
+        PROVIDER_GEMINI: LLMConfig(
+            provider=PROVIDER_GEMINI,
+            model="gemini-2.0-flash",  # Fast Gemini model
             temperature=0.7,
             max_tokens=2048,
-            api_key=os.getenv("XAI_API_KEY"),
-            base_url="https://api.x.ai/v1"
+            api_key=os.getenv("GEMINI_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta"
         ),
         PROVIDER_GROQ: LLMConfig(
             provider=PROVIDER_GROQ,
@@ -64,13 +64,13 @@ class Config:
 
     # Premium models for when stronger reasoning is needed
     PREMIUM_CONFIGS = {
-        PROVIDER_XAI: LLMConfig(
-            provider=PROVIDER_XAI,
-            model="grok-4.3",  # Grok 2 is already premium
+        PROVIDER_GEMINI: LLMConfig(
+            provider=PROVIDER_GEMINI,
+            model="gemini-2.5-flash",  # More capable Gemini model
             temperature=0.7,
             max_tokens=4096,
-            api_key=os.getenv("XAI_API_KEY"),
-            base_url="https://api.x.ai/v1"
+            api_key=os.getenv("GEMINI_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta"
         ),
         PROVIDER_GROQ: LLMConfig(
             provider=PROVIDER_GROQ,
@@ -138,22 +138,21 @@ class Config:
             raise ValueError(
                 f"API key not found for provider '{config.provider}'. "
                 f"Please set the appropriate environment variable. "
-                f"Use XAI_API_KEY for xAI or GROQ_API_KEY for Groq."
+                f"Use GEMINI_API_KEY for Gemini or GROQ_API_KEY for Groq."
             )
 
-        if config.provider == self.PROVIDER_XAI:
-            # xAI uses OpenAI-compatible API
-            from langchain_openai import ChatOpenAI
-            return ChatOpenAI(
+        if config.provider == self.PROVIDER_GEMINI:
+            # Google Gemini
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            return ChatGoogleGenerativeAI(
                 model=config.model,
                 temperature=config.temperature,
-                max_tokens=config.max_tokens,
-                api_key=config.api_key,
-                base_url=config.base_url
+                max_output_tokens=config.max_tokens,
+                google_api_key=config.api_key
             )
 
         elif config.provider == self.PROVIDER_GROQ:
-            # Groq also uses OpenAI-compatible API
+            # Groq uses OpenAI-compatible API
             from langchain_openai import ChatOpenAI
             return ChatOpenAI(
                 model=config.model,
@@ -180,7 +179,7 @@ def set_provider(provider: str, use_premium: bool = False) -> None:
     Change the LLM provider at runtime.
 
     Args:
-        provider: One of 'xai' or 'groq'.
+        provider: One of 'gemini' or 'groq'.
         use_premium: Whether to use premium models.
     """
     global config
