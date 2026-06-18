@@ -4,7 +4,7 @@ FastAPI Server for AI Board of Directors Backend.
 
 import os
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -35,7 +35,24 @@ class MeetingResponse(BaseModel):
     thread_id: str
     query: str
     result: dict
-    messages: Optional[List[dict]] = None
+    messages: Optional[List[Any]] = None  # Accept any type, convert in endpoint
+
+
+def convert_to_serializable(obj):
+    """Convert objects to JSON-serializable format."""
+    if hasattr(obj, 'content'):
+        # AIMessage or similar
+        return {
+            "name": getattr(obj, 'name', None),
+            "content": obj.content,
+            "type": getattr(obj, 'type', 'unknown'),
+        }
+    elif isinstance(obj, dict):
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_to_serializable(item) for item in obj]
+    else:
+        return obj
 
 
 class ContinueRequest(BaseModel):
@@ -107,14 +124,15 @@ async def create_meeting(request: MeetingRequest):
         
         # Save to database
         db = get_database()
-        messages = result.get("messages", [])
+        raw_messages = result.get("messages", [])
+        messages = convert_to_serializable(raw_messages)
         db.save_meeting(thread_id, request.query, result, messages)
         
         return MeetingResponse(
             status="completed",
             thread_id=thread_id,
             query=request.query,
-            result=result,
+            result=convert_to_serializable(result),
             messages=messages
         )
     except Exception as e:
@@ -134,14 +152,15 @@ async def continue_existing_meeting(request: ContinueRequest):
         
         # Save to database
         db = get_database()
-        messages = result.get("messages", [])
+        raw_messages = result.get("messages", [])
+        messages = convert_to_serializable(raw_messages)
         db.save_meeting(request.thread_id, "", result, messages)
         
         return MeetingResponse(
             status="continued",
             thread_id=request.thread_id,
             query=request.query,
-            result=result,
+            result=convert_to_serializable(result),
             messages=messages
         )
     except Exception as e:
@@ -160,8 +179,8 @@ async def get_meeting(thread_id: str):
             status="found",
             thread_id=thread_id,
             query=meeting.get("query", ""),
-            result=meeting.get("result", {}),
-            messages=meeting.get("messages", [])
+            result=convert_to_serializable(meeting.get("result", {})),
+            messages=convert_to_serializable(meeting.get("messages", []))
         )
     except HTTPException:
         raise
