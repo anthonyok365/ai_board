@@ -10,9 +10,14 @@ import time
 import json
 import sys
 import os
+import logging
 from datetime import datetime
 from typing import Optional
 import uuid
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
@@ -336,10 +341,21 @@ def run_meeting(query: str, config) -> None:
             st.success(f"🎉 Meeting completed successfully! Thread ID: {result.thread_id}")
         else:
             st.error(f"Meeting encountered an error: {result.error}")
+            logger.error(f"Meeting error: {result.error}")
         
     except Exception as e:
+        logger.exception(f"Error running meeting: {e}")
         st.session_state.meeting_error = str(e)
-        st.error(f"❌ Error running meeting: {e}")
+        
+        # Display error in a nice formatted box
+        st.error("❌ Error running meeting")
+        with st.expander("📋 View Error Details", expanded=True):
+            st.code(str(e), language="plaintext")
+            
+        # Show backend URL for debugging
+        from client.backend_client import get_backend_client
+        client = get_backend_client()
+        st.caption(f"Backend URL: {client.backend_api_url}")
         
     finally:
         st.session_state.meeting_active = False
@@ -434,7 +450,21 @@ def display_results():
     
     # Display error if any
     if st.session_state.meeting_error:
-        st.error(f"Meeting Error: {st.session_state.meeting_error}")
+        st.markdown("---")
+        st.markdown("### ❌ Error")
+        
+        # Error details in expander
+        with st.expander("📋 View Error Details", expanded=True):
+            st.code(st.session_state.meeting_error, language="plaintext")
+            
+            # Debug info
+            st.markdown("**Debug Info:**")
+            try:
+                client = get_backend_client()
+                st.markdown(f"- **Backend URL:** {client.backend_api_url}")
+                st.markdown(f"- **Backend Mode:** {client.backend_mode}")
+            except:
+                pass
 
 
 def render_action_buttons():
