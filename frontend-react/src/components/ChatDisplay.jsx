@@ -3,22 +3,17 @@ import ReactMarkdown from 'react-markdown';
 import '../Chat.css';
 
 const AGENT_CONFIG = {
-  supervisor: { name: 'Board Chair', icon: '👔', color: '#6366F1', bgColor: '#EEF2FF' },
-  strategist: { name: 'Chief Strategy Officer', icon: '🎯', color: '#3B82F6', bgColor: '#DBEAFE' },
-  financial: { name: 'Chief Financial Officer', icon: '💰', color: '#10B981', bgColor: '#D1FAE5' },
-  risk: { name: 'Chief Risk Officer', icon: '⚠️', color: '#F59E0B', bgColor: '#FEF3C7' },
-  ceo: { name: 'Chief Executive Officer', icon: '👨‍💼', color: '#8B5CF6', bgColor: '#EDE9FE' },
-  final_decision: { name: 'Board Secretary', icon: '📋', color: '#EC4899', bgColor: '#FCE7F3' },
-  human: { name: 'You', icon: '👤', color: '#1F2937', bgColor: '#10B981' },
+  supervisor: { name: 'Board Chair', icon: '👔', color: '#6366F1', bgColor: '#EEF2FF', textColor: '#1E40AF' },
+  strategist: { name: 'Strategist', icon: '🎯', color: '#3B82F6', bgColor: '#DBEAFE', textColor: '#1E40AF' },
+  financial: { name: 'Financial', icon: '💰', color: '#10B981', bgColor: '#D1FAE5', textColor: '#047857' },
+  risk: { name: 'Risk Officer', icon: '⚠️', color: '#F59E0B', bgColor: '#FEF3C7', textColor: '#B45309' },
+  ceo: { name: 'CEO', icon: '👨‍💼', color: '#8B5CF6', bgColor: '#EDE9FE', textColor: '#6D28D9' },
+  final_decision: { name: 'Final Decision', icon: '📋', color: '#EC4899', bgColor: '#FCE7F3', textColor: '#BE185D' },
 };
 
 function getAgentInfo(name) {
   const key = (name || '').toLowerCase().trim();
-  return AGENT_CONFIG[key] || { name: name || 'Board', icon: '🤖', color: '#6B7280', bgColor: '#F3F4F6' };
-}
-
-function isUserMessage(name) {
-  return (name || '').toLowerCase().trim() === 'human';
+  return AGENT_CONFIG[key] || { name: name || 'Board', icon: '🤖', color: '#6B7280', bgColor: '#F3F4F6', textColor: '#374151' };
 }
 
 export default function ChatDisplay({ messages }) {
@@ -38,6 +33,9 @@ export default function ChatDisplay({ messages }) {
     setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }));
   };
 
+  // Alternate messages: left, right, left, right...
+  const isLeftSide = (index) => index % 2 === 0;
+
   return (
     <div className="chat-container">
       {/* Header */}
@@ -51,35 +49,33 @@ export default function ChatDisplay({ messages }) {
         {messages.map((msg, index) => {
           const info = getAgentInfo(msg.name);
           const content = msg.content || String(msg);
-          const isUser = isUserMessage(msg.name);
-          const isLong = content.length > 500;
+          const isLeft = isLeftSide(index);
+          const isLong = content.length > 400;
           const isExpanded = expandedCards[index];
-          const displayContent = isLong && !isExpanded ? content.substring(0, 400) + '...' : content;
+          const displayContent = isLong && !isExpanded ? content.substring(0, 350) + '...' : content;
 
           return (
             <div 
               key={index} 
-              className={`chat-bubble-wrapper ${isUser ? 'user' : 'agent'}`}
+              className={`chat-bubble-wrapper ${isLeft ? 'left' : 'right'}`}
             >
-              {/* Avatar (only for agents on left) */}
-              {!isUser && (
-                <div className="avatar" style={{ backgroundColor: info.color }}>
-                  {info.icon}
-                </div>
-              )}
+              {/* Avatar on the outer side */}
+              <div className="avatar" style={{ backgroundColor: info.color }}>
+                {info.icon}
+              </div>
 
               <div className="bubble-container">
                 {/* Name Tag */}
-                <div className={`name-tag ${isUser ? 'user-tag' : ''}`} style={{ color: info.color }}>
+                <div className={`name-tag ${isLeft ? '' : 'right-align'}`} style={{ color: info.color }}>
                   {info.name}
                 </div>
 
                 {/* Message Bubble */}
                 <div 
-                  className={`chat-bubble ${isUser ? 'user-bubble' : 'agent-bubble'}`}
-                  style={isUser ? { backgroundColor: '#10B981' } : { backgroundColor: info.bgColor }}
+                  className={`chat-bubble ${isLeft ? 'bubble-left' : 'bubble-right'}`}
+                  style={{ backgroundColor: info.bgColor }}
                 >
-                  <div className="message-content">
+                  <div className="message-content" style={{ color: info.textColor }}>
                     <ReactMarkdown>{displayContent}</ReactMarkdown>
                   </div>
                   
@@ -88,25 +84,18 @@ export default function ChatDisplay({ messages }) {
                     <button 
                       className="expand-btn"
                       onClick={() => toggleExpand(index)}
-                      style={{ color: isUser ? '#fff' : info.color }}
+                      style={{ color: info.color }}
                     >
                       {isExpanded ? 'Show less ↑' : 'Read more ↓'}
                     </button>
                   )}
                 </div>
 
-                {/* Timestamp */}
-                <div className={`timestamp ${isUser ? 'user-time' : ''}`}>
-                  Message {index + 1}
+                {/* Message number indicator */}
+                <div className={`timestamp ${isLeft ? '' : 'right-align'}`}>
+                  #{index + 1}
                 </div>
               </div>
-
-              {/* Avatar for user on right */}
-              {isUser && (
-                <div className="avatar user-avatar" style={{ backgroundColor: '#10B981' }}>
-                  👤
-                </div>
-              )}
             </div>
           );
         })}
