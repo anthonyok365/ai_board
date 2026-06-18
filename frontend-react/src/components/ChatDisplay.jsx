@@ -1,18 +1,29 @@
+import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import '../Chat.css';
+
 const AGENT_CONFIG = {
-  supervisor: { name: 'Board Chair', icon: '👔', color: '#6366F1' },
-  strategist: { name: 'Chief Strategy Officer', icon: '🎯', color: '#3B82F6' },
-  financial: { name: 'Chief Financial Officer', icon: '💰', color: '#10B981' },
-  risk: { name: 'Chief Risk Officer', icon: '⚠️', color: '#F59E0B' },
-  ceo: { name: 'Chief Executive Officer', icon: '👨‍💼', color: '#8B5CF6' },
-  final_decision: { name: 'Board Secretary', icon: '📋', color: '#EC4899' },
+  supervisor: { name: 'Board Chair', icon: '👔', color: '#6366F1', bgColor: '#EEF2FF' },
+  strategist: { name: 'Chief Strategy Officer', icon: '🎯', color: '#3B82F6', bgColor: '#DBEAFE' },
+  financial: { name: 'Chief Financial Officer', icon: '💰', color: '#10B981', bgColor: '#D1FAE5' },
+  risk: { name: 'Chief Risk Officer', icon: '⚠️', color: '#F59E0B', bgColor: '#FEF3C7' },
+  ceo: { name: 'Chief Executive Officer', icon: '👨‍💼', color: '#8B5CF6', bgColor: '#EDE9FE' },
+  final_decision: { name: 'Board Secretary', icon: '📋', color: '#EC4899', bgColor: '#FCE7F3' },
+  human: { name: 'You', icon: '👤', color: '#1F2937', bgColor: '#10B981' },
 };
 
 function getAgentInfo(name) {
   const key = (name || '').toLowerCase().trim();
-  return AGENT_CONFIG[key] || { name: name || 'Unknown', icon: '🤖', color: '#6B7280' };
+  return AGENT_CONFIG[key] || { name: name || 'Board', icon: '🤖', color: '#6B7280', bgColor: '#F3F4F6' };
+}
+
+function isUserMessage(name) {
+  return (name || '').toLowerCase().trim() === 'human';
 }
 
 export default function ChatDisplay({ messages }) {
+  const [expandedCards, setExpandedCards] = useState({});
+
   if (!messages || messages.length === 0) {
     return (
       <div className="chat-placeholder">
@@ -23,51 +34,79 @@ export default function ChatDisplay({ messages }) {
     );
   }
 
-  // Group messages by agent
-  const agentCounts = {};
-  messages.forEach((msg) => {
-    const name = msg.name || 'unknown';
-    agentCounts[name] = (agentCounts[name] || 0) + 1;
-  });
+  const toggleExpand = (index) => {
+    setExpandedCards(prev => ({ ...prev, [index]: !prev[index] }));
+  };
 
   return (
-    <div className="chat-display">
-      {/* Agent Summary */}
-      <div className="agent-summary">
-        {Object.entries(agentCounts).map(([name, count]) => {
-          const info = getAgentInfo(name);
-          return (
-            <div key={name} className="agent-stat" style={{ borderColor: info.color }}>
-              <span className="agent-icon">{info.icon}</span>
-              <span className="agent-name">{info.name.split(' ').pop()}</span>
-              <span className="agent-count">{count}</span>
-            </div>
-          );
-        })}
+    <div className="chat-container">
+      {/* Header */}
+      <div className="chat-header">
+        <h3>💬 Board Discussion</h3>
+        <span className="message-count">{messages.length} messages</span>
       </div>
 
-      {/* Messages */}
-      <div className="messages-list">
+      {/* Chat Messages */}
+      <div className="chat-messages">
         {messages.map((msg, index) => {
           const info = getAgentInfo(msg.name);
-          const content = msg.content || msg;
+          const content = msg.content || String(msg);
+          const isUser = isUserMessage(msg.name);
+          const isLong = content.length > 500;
+          const isExpanded = expandedCards[index];
+          const displayContent = isLong && !isExpanded ? content.substring(0, 400) + '...' : content;
 
           return (
-            <div key={index} className="message-card" style={{ borderLeftColor: info.color }}>
-              <div className="message-header">
+            <div 
+              key={index} 
+              className={`chat-bubble-wrapper ${isUser ? 'user' : 'agent'}`}
+            >
+              {/* Avatar (only for agents on left) */}
+              {!isUser && (
                 <div className="avatar" style={{ backgroundColor: info.color }}>
                   {info.icon}
                 </div>
-                <div className="message-meta">
-                  <span className="agent-name">{info.name}</span>
-                  <span className="agent-role">
-                    {name === 'human' ? 'Human Input' : 'Board Member'}
-                  </span>
+              )}
+
+              <div className="bubble-container">
+                {/* Name Tag */}
+                <div className={`name-tag ${isUser ? 'user-tag' : ''}`} style={{ color: info.color }}>
+                  {info.name}
+                </div>
+
+                {/* Message Bubble */}
+                <div 
+                  className={`chat-bubble ${isUser ? 'user-bubble' : 'agent-bubble'}`}
+                  style={isUser ? { backgroundColor: '#10B981' } : { backgroundColor: info.bgColor }}
+                >
+                  <div className="message-content">
+                    <ReactMarkdown>{displayContent}</ReactMarkdown>
+                  </div>
+                  
+                  {/* Expand/Collapse for long messages */}
+                  {isLong && (
+                    <button 
+                      className="expand-btn"
+                      onClick={() => toggleExpand(index)}
+                      style={{ color: isUser ? '#fff' : info.color }}
+                    >
+                      {isExpanded ? 'Show less ↑' : 'Read more ↓'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Timestamp */}
+                <div className={`timestamp ${isUser ? 'user-time' : ''}`}>
+                  Message {index + 1}
                 </div>
               </div>
-              <div className="message-content">
-                {content}
-              </div>
+
+              {/* Avatar for user on right */}
+              {isUser && (
+                <div className="avatar user-avatar" style={{ backgroundColor: '#10B981' }}>
+                  👤
+                </div>
+              )}
             </div>
           );
         })}
