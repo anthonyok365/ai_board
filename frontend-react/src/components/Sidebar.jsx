@@ -29,7 +29,7 @@ export default function Sidebar({ config, onConfigChange }) {
       { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Fast)' },
     ],
     gemini: [
-      { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Most Capable)' },
+      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Most Capable)' },
     ],
   };
 
