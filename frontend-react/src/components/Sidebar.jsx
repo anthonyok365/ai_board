@@ -28,7 +28,7 @@ export default function Sidebar({ config, onConfigChange }) {
     groq: [
       { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Fast)' },
     ],
-    xai: [
+    gemini: [
       { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Most Capable)' },
     ],
   };
