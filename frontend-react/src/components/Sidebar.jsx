@@ -21,7 +21,7 @@ export default function Sidebar({ config, onConfigChange }) {
 
   const providers = [
     { value: 'groq', label: 'Groq (Fast, Free)' },
-    { value: 'xai', label: 'Google Gemini' },
+    { value: 'gemini', label: 'Google Gemini' },
   ];
 
   const models = {
@@ -29,7 +29,7 @@ export default function Sidebar({ config, onConfigChange }) {
       { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Fast)' },
     ],
     xai: [
-      { value: 'gemini-3.5-flash', label: 'Grok 4.3 (Most Capable)' },
+      { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash (Most Capable)' },
     ],
   };
 

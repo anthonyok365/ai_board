@@ -90,7 +90,7 @@ class Config:
             use_premium: If True, use stronger (but more expensive) models.
         """
         self.use_premium = use_premium
-        self._provider = os.getenv("LLM_PROVIDER", self.PROVIDER_GROQ)
+        self._provider = os.getenv("LLM_PROVIDER", self.PROVIDER_GEMINI)
         self._validate_provider()
 
     def _validate_provider(self) -> None:
