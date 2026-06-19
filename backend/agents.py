@@ -178,6 +178,11 @@ def _invoke_llm(system_prompt: str, state: AgentState) -> AIMessage:
 
     # Build the conversation with system prompt and history
     from langchain_core.messages import SystemMessage, HumanMessage
+
+    # Get the LLM instance
+    config_instance = get_config()
+    llm = config_instance.get_llm()
+
     messages = [SystemMessage(content=system_prompt)]
     
     # Add the current query as a HumanMessage (required for Gemini)
