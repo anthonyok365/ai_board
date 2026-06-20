@@ -26,7 +26,7 @@ export default function Sidebar({ config, onConfigChange }) {
 
   const models = {
     groq: [
-      { value: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (Fast)' },
+      { value: 'llama-3.1-8b-instant', label: 'Llama 4 Scout (Fast)' },
     ],
     gemini: [
       { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Most Capable)' },
