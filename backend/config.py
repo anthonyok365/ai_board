@@ -54,7 +54,7 @@ class Config:
         ),
         PROVIDER_GROQ: LLMConfig(
             provider=PROVIDER_GROQ,
-            model="meta-llama/llama-4-scout-17b-16e-instruct",  # Fast and free tier available
+            model="llama-3.3-70b-versatile",  # Fast and free tier available
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("GROQ_API_KEY"),
