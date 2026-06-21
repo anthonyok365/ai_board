@@ -42,9 +42,13 @@ def convert_to_serializable(obj):
     """Convert objects to JSON-serializable format."""
     if hasattr(obj, 'content'):
         # AIMessage or similar
+        content = getattr(obj, 'content', '')
+        # Handle list content (from Gemini or structured outputs)
+        if isinstance(content, list):
+            content = content[0] if content else ''
         return {
             "name": getattr(obj, 'name', None),
-            "content": obj.content,
+            "content": str(content) if content else '',
             "type": getattr(obj, 'type', 'unknown'),
         }
     elif isinstance(obj, dict):
