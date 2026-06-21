@@ -78,9 +78,12 @@ def _invoke_llm(system_prompt: str, state: AgentState, max_retries: int = 3):
     # Add only recent messages to prevent context explosion
     recent_messages = list(state["messages"])[-8:]
     for msg in recent_messages:
-        if hasattr(msg, "content") and msg.content.strip():
+        content = getattr(msg, "content", "")
+        if isinstance(content, list):
+            content = content[0] if content else ""
+        if content and str(content).strip():
             # Use plain AIMessage without .name for better Gemini/Groq compatibility
-            messages.append(AIMessage(content=msg.content))
+            messages.append(AIMessage(content=str(content)))
     
     logger.info(f"Invoking LLM with {len(messages)} messages | Provider: {type(llm).__name__}")
     
@@ -170,7 +173,10 @@ def supervisor_node(state: AgentState, config: RunnableConfig):
     summary += "\nRecent:\n"
     for msg in recent_messages:
         name = getattr(msg, "name", "unknown")
-        summary += f" [{name}]: {msg.content[:250]}...\n"
+        content = getattr(msg, "content", "")
+        if isinstance(content, list):
+            content = content[0] if content else ""
+        summary += f" [{name}]: {str(content)[:250]}...\n"
     
     enhanced_prompt = SUPERVISOR_SYSTEM_PROMPT + "\n\nCurrent State:\n" + summary
     
@@ -212,7 +218,7 @@ def final_decision_node(state: AgentState, config: RunnableConfig):
     
     recent_messages = list(state["messages"])[-8:]
     all_input = "\n\n".join([
-        f"--- {getattr(msg, 'name', 'unknown').upper()} ---\n{msg.content[:1200]}"
+        f"--- {getattr(msg, 'name', 'unknown').upper()} ---\n{str(getattr(msg, 'content', '') or '')[:1200]}"
         for msg in recent_messages
         if getattr(msg, 'name', None) not in [None, "supervisor"]
     ])
@@ -251,8 +257,13 @@ FORMAT EXACTLY LIKE THIS:
     response = _invoke_llm(final_prompt, state)
     response.name = "final_decision"
     
+    # Handle list content from LLM
+    board_decision = getattr(response, 'content', '')
+    if isinstance(board_decision, list):
+        board_decision = board_decision[0] if board_decision else ''
+    
     return {
         "messages": [response],
-        "board_decision": response.content,
+        "board_decision": str(board_decision) if board_decision else '',
         "next": "FINAL"
     }

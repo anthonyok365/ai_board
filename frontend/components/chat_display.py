@@ -285,7 +285,11 @@ def render_chat_display(
     
     for i, msg in enumerate(messages):
         name = getattr(msg, 'name', 'unknown') or 'unknown'
-        content = msg.content if hasattr(msg, 'content') else str(msg)
+        content = getattr(msg, 'content', '') if hasattr(msg, 'content') else str(msg)
+        # Handle list content (can happen with some LLM providers)
+        if isinstance(content, list):
+            content = content[0] if content else ''
+        content = str(content) if content else ''
         
         # Render with expander for long messages
         if len(content) > 500 and show_expanders:
@@ -302,8 +306,11 @@ def render_chat_display(
         with container.expander("📜 View Full Raw Transcript"):
             for msg in messages:
                 name = getattr(msg, 'name', 'unknown') or 'unknown'
-                content = msg.content if hasattr(msg, 'content') else str(msg)
-                st.text(f"[{name.upper()}] {content}")
+                content = getattr(msg, 'content', '') if hasattr(msg, 'content') else str(msg)
+                # Handle list content
+                if isinstance(content, list):
+                    content = content[0] if content else ''
+                st.text(f"[{name.upper()}] {str(content)}")
 
 
 def render_agent_message(
