@@ -33,7 +33,7 @@ class Config:
     DEFAULT_CONFIGS = {
         PROVIDER_GEMINI: LLMConfig(
             provider=PROVIDER_GEMINI,
-            model="gemini-3.5-flash",
+            model="gemini-2.5-flash-preview-05-20",  # Latest stable Gemini Flash
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("GEMINI_API_KEY"),
@@ -53,7 +53,7 @@ class Config:
     PREMIUM_CONFIGS = {
         PROVIDER_GEMINI: LLMConfig(
             provider=PROVIDER_GEMINI,
-            model="gemini-2.5-flash",   # or gemini-2.5-pro if available
+            model="gemini-2.5-pro",   # Strongest Gemini model
             temperature=0.7,
             max_tokens=4096,
             api_key=os.getenv("GEMINI_API_KEY"),
