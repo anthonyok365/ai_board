@@ -99,10 +99,16 @@ def _invoke_llm(system_prompt: str, state: AgentState, max_retries: int = 3):
             
         except Exception as e:
             error_str = str(e).lower()
-            logger.warning(f"Attempt {attempt+1}/{max_retries} failed: {type(e).__name__}")
+            logger.warning(f"Attempt {attempt+1}/{max_retries} failed: {type(e).__name__}: {str(e)[:100]}")
             
-            if any(err in error_str for err in ["502", "503", "timeout", "overloaded", "resource_exhausted", "429"]):
-                sleep_time = 2 ** attempt * 3
+            # Handle rate limiting with longer waits
+            if "429" in error_str or "rate" in error_str or "too many requests" in error_str:
+                sleep_time = 30  # Longer wait for rate limits
+                logger.warning(f"Rate limited by API. Waiting {sleep_time}s...")
+                time.sleep(sleep_time)
+                continue
+            elif any(err in error_str for err in ["502", "503", "timeout", "overloaded", "resource_exhausted"]):
+                sleep_time = 2 ** attempt * 2
                 logger.info(f"Retrying in {sleep_time}s...")
                 time.sleep(sleep_time)
                 continue
