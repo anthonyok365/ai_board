@@ -98,10 +98,14 @@ def _invoke_llm(system_prompt: str, state: AgentState, max_retries: int = 3):
             return result
             
         except Exception as e:
-            error_str = str(e).lower()
-            logger.warning(f"Attempt {attempt+1}/{max_retries} failed: {type(e).__name__}: {str(e)[:200]}")
+            error_str = str(e)
+            error_type = type(e).__name__
+            logger.error(f"Attempt {attempt+1}/{max_retries} FAILED")
+            logger.error(f"Error type: {error_type}")
+            logger.error(f"Error message: {error_str}")
+            logger.error(f"Provider: {type(llm).__name__}")
             
-            # Retry on ANY error - be more aggressive
+            # Always retry on any error
             sleep_time = 2 ** attempt * 2
             logger.info(f"Retrying in {sleep_time}s...")
             time.sleep(sleep_time)
