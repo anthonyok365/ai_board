@@ -33,7 +33,7 @@ class Config:
     DEFAULT_CONFIGS = {
         PROVIDER_GEMINI: LLMConfig(
             provider=PROVIDER_GEMINI,
-            model="gemini-2.0-flash-exp",
+            model="gemini-1.5-flash",
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("GEMINI_API_KEY"),
@@ -41,7 +41,7 @@ class Config:
         ),
         PROVIDER_GROQ: LLMConfig(
             provider=PROVIDER_GROQ,
-            model="llama-3.1-8b-instant",          # Fast + reliable (recommended)
+            model="llama-3.1-8b-instant",
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("GROQ_API_KEY"),
@@ -61,7 +61,7 @@ class Config:
         ),
         PROVIDER_GROQ: LLMConfig(
             provider=PROVIDER_GROQ,
-            model="llama-3.1-70b-versatile",   # Stronger reasoning
+            model="llama-3.3-70b-versatile",   # Stronger reasoning (corrected)
             temperature=0.7,
             max_tokens=4096,
             api_key=os.getenv("GROQ_API_KEY"),
