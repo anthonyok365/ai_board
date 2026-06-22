@@ -33,7 +33,7 @@ class Config:
     DEFAULT_CONFIGS = {
         PROVIDER_GEMINI: LLMConfig(
             provider=PROVIDER_GEMINI,
-            model="gemini-3.5-flash",  # Latest stable Gemini Flash
+            model="gemini-3.1-flash-lite",  # Latest stable Gemini Flash
             temperature=0.7,
             max_tokens=2048,
             api_key=os.getenv("GEMINI_API_KEY"),
