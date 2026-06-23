@@ -43,7 +43,7 @@ function App() {
       setDebugInfo({
         message: err.message,
         response: err.response?.data,
-        backendUrl: import.meta.env.VITE_API_URL || 'https://ai-board-backend-fp0x.onrender.com',
+        backendUrl: import.meta.env.VITE_API_URL || 'https://ai-board-backend-production.up.railway.app',
       });
     }
   };
