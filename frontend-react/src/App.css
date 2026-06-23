@@ -85,3 +85,12 @@ body { font-family: Inter, sans-serif; background: var(--bg-dark); color: var(--
 .raw-decision pre { white-space: pre-wrap; font-size: 0.875rem; }
 .actions-section { display: flex; gap: 1rem; justify-content: center; }
 @media (max-width: 768px) { .app { flex-direction: column; } .sidebar { width: 100%%; border-right: none; border-bottom: 1px solid var(--border); } .main-content { padding: 1rem; } }
+
+
+/* Continue Meeting Section */
+.continue-section { background: linear-gradient(135deg, #fef3c7 0%%, #fde68a 100%%); border-radius: 16px; padding: 2rem; margin: 2rem 0; border: 2px solid #f59e0b; }
+.continue-section h3 { color: #92400e; margin-bottom: 0.5rem; font-size: 1.5rem; }
+.continue-description { color: #78350f; margin-bottom: 1rem; font-size: 0.9375rem; line-height: 1.6; }
+.continue-section textarea { width: 100%%; padding: 1rem; border-radius: 12px; border: 2px solid #fbbf24; background: white; font-size: 0.9375rem; resize: vertical; margin-bottom: 1rem; }
+.continue-section textarea:focus { outline: none; border-color: #f59e0b; }
+.continue-btn { background: linear-gradient(135deg, #f59e0b, #d97706) !important; width: 100%%; justify-content: center; }

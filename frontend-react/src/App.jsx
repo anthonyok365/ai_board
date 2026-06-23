@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Play, Trash2, Download, RotateCcw, AlertCircle } from 'lucide-react';
+import { Play, Trash2, Download, RotateCcw, AlertCircle, MessageCircle, ArrowRight } from 'lucide-react';
 import { useMeeting } from './hooks/useMeeting';
 import Sidebar from './components/Sidebar';
 import ChatDisplay from './components/ChatDisplay';
@@ -16,6 +16,8 @@ const defaultConfig = {
 
 function App() {
   const [query, setQuery] = useState('');
+  const [continueQuery, setContinueQuery] = useState('');
+  const [showContinue, setShowContinue] = useState(false);
   const [config, setConfig] = useState(defaultConfig);
   const [debugInfo, setDebugInfo] = useState(null);
   
@@ -25,26 +27,30 @@ function App() {
     result,
     threadId,
     startMeeting,
+    continueMeeting,
     reset,
   } = useMeeting();
 
   const handleStartMeeting = async () => {
     if (!query.trim()) return;
-    
-    setDebugInfo(null);
+    setShowContinue(false);
     
     try {
-      await startMeeting({
-        query: query.trim(),
-        provider: config.provider,
-        usePremium: config.usePremium,
-      });
+      await startMeeting({ query, ...config });
+      setShowContinue(true); // Show continue button after first meeting
     } catch (err) {
-      setDebugInfo({
-        message: err.message,
-        response: err.response?.data,
-        backendUrl: import.meta.env.VITE_API_URL || 'https://ai-board-backend-production.up.railway.app',
-      });
+      // Error handled by useMeeting
+    }
+  };
+
+  const handleContinueMeeting = async () => {
+    if (!continueQuery.trim()) return;
+    
+    try {
+      await continueMeeting({ query: continueQuery, threadId });
+      setContinueQuery('');
+    } catch (err) {
+      // Error handled by useMeeting
     }
   };
 
@@ -229,6 +235,38 @@ function App() {
         {result?.result?.decision && (
           <section className="decision-section">
             <DecisionPanel decision={result.result.decision} />
+          </section>
+        )}
+
+        {/* Continue Meeting Section */}
+        {showContinue && !loading && (
+          <section className="continue-section">
+            <h3>🎯 Continue Meeting: Action Planning</h3>
+            <p className="continue-description">
+              Move from theory to practice. Get actionable steps, real resources, 
+              specific tools, and implementation guides for your decision.
+            </p>
+            <textarea
+              value={continueQuery}
+              onChange={(e) => setContinueQuery(e.target.value)}
+              placeholder="Examples:
+• Create a detailed 90-day execution plan
+• Find free/low-cost tools to get started
+• How do I register a business in Nigeria?
+• What are the best platforms for [specific task]?
+• Build a simple landing page with no coding
+• Find investors/loans for this type of business"
+              rows={5}
+              disabled={loading}
+            />
+            <button
+              className="btn-primary continue-btn"
+              onClick={handleContinueMeeting}
+              disabled={loading || !continueQuery.trim()}
+            >
+              <ArrowRight size={20} />
+              {loading ? 'Planning...' : 'Get Action Plan'}
+            </button>
           </section>
         )}
 

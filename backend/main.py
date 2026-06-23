@@ -213,8 +213,52 @@ def _stream_meeting(
 
 
 # ============================================================================
-# Convenience Functions
+# Action Planner - Reality-based actionable advice
 # ============================================================================
+
+ACTION_PLANNER_PROMPT = """You are a practical Business Implementation Advisor. The user has completed a board meeting and needs REAL, ACTIONABLE guidance.
+
+ORIGINAL BOARD DISCUSSION:
+{board_context}
+
+USER'S FOLLOW-UP QUESTION:
+{user_question}
+
+Your job is to provide REALITY-BASED advice that someone can actually execute. No fluff, no imagination - just practical steps.
+
+FORMAT YOUR RESPONSE:
+
+**🔴 First Things First (This Week)**
+- Specific action items with clear steps
+- What to do TODAY or THIS WEEK
+- If tools needed: specific free/low-cost options
+
+**🟡 Short-Term Actions (Next 30 Days)**
+- Concrete milestones
+- What to accomplish before month end
+- Resources needed and where to find them
+
+**🟢 Resources & Tools**
+- FREE resources: Specific links, tools, platforms
+- LOW-COST options: Under $50/month alternatives
+- Learning materials: Actual courses, videos, docs
+
+**⚠️ Reality Check**
+- What will actually happen
+- Common pitfalls and how to avoid them
+- Honest timeline (not optimistic)
+
+**📋 Step-by-Step (If Applicable)**
+1. [Numbered list of actual steps]
+2. [Be specific - names, prices, links]
+
+**💡 Pro Tips**
+- Things nobody tells you
+- Shortcuts that actually work
+- What to do if stuck
+
+Sign with: [Implementation Advisor]"""
+
 
 def continue_meeting(
     thread_id: str,
@@ -223,7 +267,11 @@ def continue_meeting(
 ) -> dict[str, Any]:
     """
     Continue an existing board meeting with additional input.
+    Provides reality-based, actionable advice instead of another full board meeting.
     """
+    from langchain_core.messages import HumanMessage
+    from config import get_config
+    
     graph = get_graph()
     config = create_graph_config(thread_id=thread_id, recursion_limit=recursion_limit)
 
@@ -233,20 +281,51 @@ def continue_meeting(
         if not existing_state or not existing_state.values.get("messages"):
             raise ValueError(f"No meeting found with thread_id: {thread_id}")
 
-        graph.update_state(
-            config,
-            {"messages": [HumanMessage(content=additional_query)]},
+        # Get board context from previous messages
+        messages = existing_state.values.get("messages", [])
+        board_context = "\n\n".join([
+            f"[{getattr(msg, 'name', 'unknown')}]\n{getattr(msg, 'content', '')}"
+            for msg in messages[-10:]  # Last 10 messages
+            if getattr(msg, 'content', '')
+        ])
+
+        # Get LLM for action planning
+        llm_config = get_config()
+        llm = llm_config.get_llm()
+
+        # Create action planning prompt
+        prompt = ACTION_PLANNER_PROMPT.format(
+            board_context=board_context[:4000],  # Limit context
+            user_question=additional_query
         )
 
-        result = graph.invoke(None, config=config)
+        # Invoke LLM directly (not full graph - just one focused call)
+        logger.info("Generating actionable plan...")
+        result = llm.invoke([
+            SystemMessage(content=prompt),
+            HumanMessage(content=additional_query)
+        ])
+
+        # Extract content
+        content = getattr(result, 'content', '')
+        if isinstance(content, list):
+            content = content[0] if content else ''
+        content = str(content) if content else ''
+
+        # Add as a special message
+        action_message = HumanMessage(content=content)
+        graph.update_state(config, {"messages": [action_message]})
+
+        # Get updated state
+        updated_state = graph.get_state(config)
 
         return {
             "success": True,
             "thread_id": thread_id,
-            "messages": list(result.get("messages", [])),
-            "decision": result.get("board_decision"),
+            "messages": list(updated_state.values.get("messages", [])),
+            "decision": updated_state.values.get("board_decision"),
             "error": None,
-            "rounds": result.get("decision_rounds", 0),
+            "rounds": updated_state.values.get("decision_rounds", 0),
         }
 
     except Exception as e:
