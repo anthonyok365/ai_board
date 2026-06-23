@@ -1,12 +1,11 @@
 """
-LangGraph StateGraph for AI Board of Directors.
+LangGraph StateGraph for AI Board of Directors - Authentic Board Meeting.
 
-Implements a production-grade multi-agent system with:
-- Conditional routing based on supervisor decisions
-- Cycle management (Strategist → Financial → Risk → CEO → back if needed)
-- MemorySaver for persistence and checkpointing
-- Thread-based session support
-- Recursion limit handling and graceful error recovery
+Implements a real board meeting structure:
+- Phase 1: Opening Statements (each agent makes their case)
+- Phase 2: Cross-Examination (agents challenge each other)
+- Phase 3: Devil's Advocate (challenges everything)
+- Phase 4: CEO Final Decision (hard trade-offs)
 """
 
 import logging
@@ -14,16 +13,18 @@ from typing import Literal
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.message import add_messages
-from langgraph.errors import GraphRecursionError
 
-from state import AgentState, create_initial_state
+from state import AgentState
 from agents import (
-    strategist_node,
-    financial_node,
-    risk_node,
-    ceo_node,
     supervisor_node,
-    final_decision_node,
+    strategist_opening,
+    financial_opening,
+    risk_opening,
+    strategist_cross_exam,
+    financial_cross_exam,
+    risk_cross_exam,
+    devils_advocate,
+    ceo_deliberation,
 )
 
 # Configure logging
@@ -34,78 +35,63 @@ logger = logging.getLogger(__name__)
 # Constants
 # ============================================================================
 
-# Maximum recursion depth to prevent infinite loops
-MAX_RECURSION_LIMIT = 25
+MAX_RECURSION_LIMIT = 20
 
 # Node names
 NODE_SUPERVISOR = "supervisor"
-NODE_STRATEGIST = "strategist"
-NODE_FINANCIAL = "financial"
-NODE_RISK = "risk"
-NODE_CEO = "ceo"
-NODE_FINAL_DECISION = "final_decision"
 
-# Routing targets
-ROUTING_TARGETS = [NODE_STRATEGIST, NODE_FINANCIAL, NODE_RISK, NODE_CEO, NODE_FINAL_DECISION]
+# Phase 1: Opening Statements
+NODE_STRATEGIST_OPENING = "strategist_opening"
+NODE_FINANCIAL_OPENING = "financial_opening"
+NODE_RISK_OPENING = "risk_opening"
+
+# Phase 2: Cross-Examination
+NODE_STRATEGIST_CROSS = "strategist_cross"
+NODE_FINANCIAL_CROSS = "financial_cross"
+NODE_RISK_CROSS = "risk_cross"
+
+# Phase 3: Devil's Advocate
+NODE_DEVILS_ADVOCATE = "devils_advocate"
+
+# Phase 4: CEO Decision
+NODE_CEO_DECISION = "ceo_decision"
+
+# All nodes
+ALL_NODES = [
+    NODE_SUPERVISOR,
+    NODE_STRATEGIST_OPENING, NODE_FINANCIAL_OPENING, NODE_RISK_OPENING,
+    NODE_STRATEGIST_CROSS, NODE_FINANCIAL_CROSS, NODE_RISK_CROSS,
+    NODE_DEVILS_ADVOCATE,
+    NODE_CEO_DECISION,
+]
 
 # ============================================================================
-# Conditional Edge Functions
+# Routing Logic
 # ============================================================================
 
-def route_decision(state: AgentState) -> Literal[
-    NODE_STRATEGIST, NODE_FINANCIAL, NODE_RISK, NODE_CEO, NODE_FINAL_DECISION, "__end__"
-]:
-    """
-    Route to the next node based on supervisor's decision.
+def route_next(state: AgentState) -> str:
+    """Route to the next phase based on what has completed."""
+    iterations = state.get("agent_iterations", {})
     
-    This function implements the core routing logic for the board meeting.
-    It uses the 'next' field set by the supervisor to determine which
-    agent should speak next.
-    
-    Args:
-        state: Current agent state.
-        
-    Returns:
-        The name of the next node to invoke.
-    """
-    next_agent = state.get("next", NODE_FINAL_DECISION).lower().strip()
-    
-    # Validate routing decision
-    if next_agent not in ROUTING_TARGETS:
-        logger.warning(f"Invalid routing decision: '{next_agent}', defaulting to final_decision")
-        next_agent = NODE_FINAL_DECISION
-    
-    # Special handling for final decision
-    if next_agent == NODE_FINAL_DECISION or next_agent == "FINAL":
-        logger.info("Board meeting concluded, routing to final decision")
-        return NODE_FINAL_DECISION
-    
-    # Check for recursion limit to prevent infinite loops
-    current_round = state.get("decision_rounds", 0)
-    if current_round >= MAX_RECURSION_LIMIT // 4:  # Allow ~6 full rounds
-        logger.info("Max rounds reached, concluding meeting")
-        return NODE_FINAL_DECISION
-    
-    logger.info(f"Routing to: {next_agent}")
-    return next_agent
-
-
-def should_continue(state: AgentState) -> Literal["continue", "end"]:
-    """
-    Determine if the board meeting should continue or end.
-    
-    Args:
-        state: Current agent state.
-        
-    Returns:
-        "continue" if meeting should proceed, "end" if concluded.
-    """
-    next_agent = state.get("next", "")
-    
-    if next_agent == "FINAL" or next_agent == "__end__":
-        return "end"
-    
-    return "continue"
+    # Check which phases completed
+    if iterations.get(NODE_STRATEGIST_OPENING, 0) == 0:
+        return NODE_STRATEGIST_OPENING
+    elif iterations.get(NODE_FINANCIAL_OPENING, 0) == 0:
+        return NODE_FINANCIAL_OPENING
+    elif iterations.get(NODE_RISK_OPENING, 0) == 0:
+        return NODE_RISK_OPENING
+    elif iterations.get(NODE_STRATEGIST_CROSS, 0) == 0:
+        return NODE_STRATEGIST_CROSS
+    elif iterations.get(NODE_FINANCIAL_CROSS, 0) == 0:
+        return NODE_FINANCIAL_CROSS
+    elif iterations.get(NODE_RISK_CROSS, 0) == 0:
+        return NODE_RISK_CROSS
+    elif iterations.get(NODE_DEVILS_ADVOCATE, 0) == 0:
+        return NODE_DEVILS_ADVOCATE
+    elif iterations.get(NODE_CEO_DECISION, 0) == 0:
+        return NODE_CEO_DECISION
+    else:
+        return "FINAL"
 
 
 # ============================================================================
@@ -113,196 +99,97 @@ def should_continue(state: AgentState) -> Literal["continue", "end"]:
 # ============================================================================
 
 def create_board_graph() -> StateGraph:
-    """
-    Create and configure the AI Board of Directors StateGraph.
+    """Create the authentic board meeting graph."""
+    logger.info("Creating Auth Board Meeting graph")
     
-    The graph structure follows a supervisor pattern where:
-    1. Supervisor analyzes state and decides routing
-    2. Selected agent provides their perspective
-    3. Loop continues until supervisor routes to final_decision
-    
-    Returns:
-        Configured StateGraph ready for compilation.
-    """
-    logger.info("Creating AI Board of Directors graph")
-    
-    # Define the graph with our state schema
     workflow = StateGraph(AgentState)
     
-    # ========================================================================
-    # Add All Agent Nodes
-    # ========================================================================
-    
-    # Supervisor/Board Chair - orchestrates the meeting
+    # Add all nodes
     workflow.add_node(NODE_SUPERVISOR, supervisor_node)
     
-    # Individual board members
-    workflow.add_node(NODE_STRATEGIST, strategist_node)
-    workflow.add_node(NODE_FINANCIAL, financial_node)
-    workflow.add_node(NODE_RISK, risk_node)
-    workflow.add_node(NODE_CEO, ceo_node)
+    # Phase 1: Opening Statements
+    workflow.add_node(NODE_STRATEGIST_OPENING, strategist_opening)
+    workflow.add_node(NODE_FINANCIAL_OPENING, financial_opening)
+    workflow.add_node(NODE_RISK_OPENING, risk_opening)
     
-    # Final decision synthesis
-    workflow.add_node(NODE_FINAL_DECISION, final_decision_node)
+    # Phase 2: Cross-Examination
+    workflow.add_node(NODE_STRATEGIST_CROSS, strategist_cross_exam)
+    workflow.add_node(NODE_FINANCIAL_CROSS, financial_cross_exam)
+    workflow.add_node(NODE_RISK_CROSS, risk_cross_exam)
     
-    # ========================================================================
-    # Define Entry Point
-    # ========================================================================
+    # Phase 3: Devil's Advocate
+    workflow.add_node(NODE_DEVILS_ADVOCATE, devils_advocate)
     
+    # Phase 4: CEO Decision
+    workflow.add_node(NODE_CEO_DECISION, ceo_deliberation)
+    
+    # Entry point
     workflow.set_entry_point(NODE_SUPERVISOR)
     
-    # ========================================================================
-    # Add Edges Between Nodes
-    # ========================================================================
-    
-    # From supervisor, route to appropriate agent
+    # Routing from supervisor to all nodes
     workflow.add_conditional_edges(
         NODE_SUPERVISOR,
-        route_decision,
+        route_next,
         {
-            NODE_STRATEGIST: NODE_STRATEGIST,
-            NODE_FINANCIAL: NODE_FINANCIAL,
-            NODE_RISK: NODE_RISK,
-            NODE_CEO: NODE_CEO,
-            NODE_FINAL_DECISION: NODE_FINAL_DECISION,
+            NODE_STRATEGIST_OPENING: NODE_STRATEGIST_OPENING,
+            NODE_FINANCIAL_OPENING: NODE_FINANCIAL_OPENING,
+            NODE_RISK_OPENING: NODE_RISK_OPENING,
+            NODE_STRATEGIST_CROSS: NODE_STRATEGIST_CROSS,
+            NODE_FINANCIAL_CROSS: NODE_FINANCIAL_CROSS,
+            NODE_RISK_CROSS: NODE_RISK_CROSS,
+            NODE_DEVILS_ADVOCATE: NODE_DEVILS_ADVOCATE,
+            NODE_CEO_DECISION: NODE_CEO_DECISION,
         }
     )
     
-    # After each agent speaks, return to supervisor for routing
-    workflow.add_edge(NODE_STRATEGIST, NODE_SUPERVISOR)
-    workflow.add_edge(NODE_FINANCIAL, NODE_SUPERVISOR)
-    workflow.add_edge(NODE_RISK, NODE_SUPERVISOR)
-    workflow.add_edge(NODE_CEO, NODE_SUPERVISOR)
+    # All nodes return to supervisor
+    workflow.add_edge(NODE_STRATEGIST_OPENING, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_FINANCIAL_OPENING, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_RISK_OPENING, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_STRATEGIST_CROSS, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_FINANCIAL_CROSS, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_RISK_CROSS, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_DEVILS_ADVOCATE, NODE_SUPERVISOR)
+    workflow.add_edge(NODE_CEO_DECISION, END)
     
-    # Final decision ends the meeting
-    workflow.add_edge(NODE_FINAL_DECISION, END)
-    
-    logger.info("Graph structure defined successfully")
+    logger.info("Auth Board Meeting graph defined")
     
     return workflow
 
 
 def compile_graph():
-    """
-    Compile the StateGraph with MemorySaver checkpointer.
+    """Compile the graph with MemorySaver."""
+    logger.info("Compiling Auth Board Meeting graph")
     
-    The checkpointer enables:
-    - Thread-based session persistence
-    - Resume from any checkpoint
-    - Audit trail of conversations
-    
-    Returns:
-        Compiled LangGraph application ready for invocation.
-    """
-    logger.info("Compiling graph with MemorySaver checkpointer")
-    
-    # Create the workflow
     workflow = create_board_graph()
-    
-    # Compile with memory checkpointer for persistence
     checkpointer = MemorySaver()
     
     compiled = workflow.compile(
         checkpointer=checkpointer,
-        interrupt_before=[],  # Could add nodes for human-in-the-loop
-        interrupt_after=[],   # Could add nodes for human approval
+        interrupt_before=[],
+        interrupt_after=[],
     )
     
-    logger.info("Graph compiled successfully")
+    logger.info("Auth Board Meeting compiled successfully")
     
     return compiled
 
 
 # ============================================================================
-# Pre-built Graph Instance
+# Singleton instance
 # ============================================================================
 
-# Singleton compiled graph instance
 _compiled_graph = None
 
-
 def get_graph():
-    """
-    Get the compiled graph instance (singleton pattern).
-    
-    Returns:
-        Compiled LangGraph application.
-    """
     global _compiled_graph
     if _compiled_graph is None:
         _compiled_graph = compile_graph()
     return _compiled_graph
 
 
-def reset_graph() -> None:
-    """Reset the compiled graph instance (useful for testing)."""
-    global _compiled_graph
-    _compiled_graph = None
-
-
-# ============================================================================
-# Utility Functions
-# ============================================================================
-
-def get_checkpointer():
-    """
-    Get a new MemorySaver checkpointer instance.
-    
-    Useful when you need separate checkpointer instances
-    for different graph instances.
-    
-    Returns:
-        New MemorySaver instance.
-    """
-    return MemorySaver()
-
-
-def visualize_graph() -> str:
-    """
-    Generate a text representation of the graph structure.
-    
-    Returns:
-        String describing the graph structure.
-    """
-    structure = """
-AI BOARD OF DIRECTORS - GRAPH STRUCTURE
-========================================
-
-Entry Point: supervisor
-
-Flow:
-    ┌─────────────────────────────────────────────────────────────┐
-    │                         supervisor                          │
-    │                   (Board Chair - routing)                   │
-    └─────────┬───────────┬───────────┬───────────┬──────────────┘
-              │           │           │           │
-              ▼           ▼           ▼           ▼
-        ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-        │strategist│ │financial │ │   risk   │ │   ceo    │
-        │(Strategy)│ │(Finance) │ │  (Risk)  │ │(CEO/Exec)│
-        └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘
-             │            │            │            │
-             └────────────┴────────────┴────────────┘
-                             │
-                             ▼
-                     ┌───────────────┐
-                     │final_decision │
-                     │(Board Summary)│
-                     └───────┬───────┘
-                             │
-                             ▼
-                            END
-
-Notes:
-- After any agent speaks, control returns to supervisor
-- Supervisor decides whether to continue discussion or conclude
-- final_decision produces the structured board decision
-- MemorySaver enables thread-based session persistence
-"""
-    return structure
-
 def create_graph_config(thread_id: str = None, recursion_limit: int = MAX_RECURSION_LIMIT) -> dict:
-    """Create a graph configuration dict for thread-based execution."""
+    """Create a graph configuration dict."""
     return {
         "configurable": {
             "thread_id": thread_id or "default",
