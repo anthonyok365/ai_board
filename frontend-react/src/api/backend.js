@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ai-board-backend-fp0x.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://ai-board-backend-production.up.railway.app';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
