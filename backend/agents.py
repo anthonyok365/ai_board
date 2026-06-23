@@ -165,53 +165,26 @@ def supervisor_node(state: AgentState, config: RunnableConfig):
     logger.info("Supervisor node invoked")
     
     agent_counts = state["agent_iterations"]
-    recent_messages = list(state["messages"])[-4:]
     
-    summary = f"Rounds: {state['decision_rounds']}\nContributions:\n"
-    for agent, count in agent_counts.items():
-        summary += f" - {agent}: {count}\n"
+    # Fixed order: Strat → Fin → Risk → CEO → Final
+    # Count how many agents have spoken
+    total_speakers = sum(agent_counts.values())
     
-    summary += "\nRecent:\n"
-    for msg in recent_messages:
-        name = getattr(msg, "name", "unknown")
-        content = getattr(msg, "content", "")
-        if isinstance(content, list):
-            content = content[0] if content else ""
-        summary += f" [{name}]: {str(content)[:250]}...\n"
+    if total_speakers == 0:
+        next_agent = "strategist"
+    elif total_speakers == 1:
+        next_agent = "financial"
+    elif total_speakers == 2:
+        next_agent = "risk"
+    elif total_speakers == 3:
+        next_agent = "ceo"
+    else:
+        next_agent = "final_decision"
     
-    enhanced_prompt = SUPERVISOR_SYSTEM_PROMPT + "\n\nCurrent State:\n" + summary
+    logger.info(f"Supervisor routing to: {next_agent} (speakers so far: {total_speakers})")
     
-    minimal_state = AgentState(
-        messages=[],
-        next="",
-        board_decision=None,
-        thread_id=state["thread_id"],
-        current_query=state["current_query"],
-        meeting_context=state["meeting_context"],
-        agent_iterations=state["agent_iterations"],
-        decision_rounds=state["decision_rounds"],
-    )
-    
-    response = _invoke_llm(enhanced_prompt, minimal_state)
-    response.name = "supervisor"
-    
-    # === FIXED: Safe content extraction ===
-    content = getattr(response, 'content', '')
-    if isinstance(content, list):
-        content = content[0] if content else ''
-    
-    response_text = str(content).strip().lower()
-    
-    valid_routes = ["strategist", "financial", "risk", "ceo", "final_decision"]
-    next_agent = "final_decision"  # safe default
-    
-    for route in valid_routes:
-        if route in response_text:
-            next_agent = route
-            break
-    
-    logger.info(f"Supervisor routing to: {next_agent}")
-    return {"messages": [response], "next": next_agent}
+    # Return empty message for supervisor (we don't need to track it)
+    return {"messages": [], "next": next_agent}
 
 
 def final_decision_node(state: AgentState, config: RunnableConfig):
